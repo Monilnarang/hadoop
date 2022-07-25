@@ -24,6 +24,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.ProviderUtils;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.IOException;
 import java.net.URI;
@@ -35,6 +38,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collection;
+import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -42,20 +47,39 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.fail;
 
+@RunWith(Enclosed.class)
 public class TestKeyProvider {
 
   private static final String CIPHER = "AES";
 
+  @RunWith(Parameterized.class)
+  public static class TheParameterizedPart {
+    @Parameterized.Parameter(value = 0)
+    public String name;
+    @Parameterized.Parameter(value = 1)
+    public Integer version;
+
+    @Parameterized.Parameters
+    public static Collection buildVersionName() {
+      return Arrays.asList(new Object[][] {
+              { "/a/b", 3 },
+              { "/aaa", 12 },
+              { "", 0 },
+              { "@#!&^^&$@", -1 },
+              { "@@", -99999 }
+      });
+    }
+
+    // PUTs #15
   @Test
   public void testBuildVersionName() throws Exception {
-    assertEquals("/a/b@3", KeyProvider.buildVersionName("/a/b", 3));
-    assertEquals("/aaa@12", KeyProvider.buildVersionName("/aaa", 12));
+    assertEquals(name + "@" + version, KeyProvider.buildVersionName(name, version));
   }
 
+  // PUTs #16
   @Test
   public void testParseVersionName() throws Exception {
-    assertEquals("/a/b", KeyProvider.getBaseName("/a/b@3"));
-    assertEquals("/aaa", KeyProvider.getBaseName("/aaa@112"));
+    assertEquals(name, KeyProvider.getBaseName(name + "@" + version));
     try {
       KeyProvider.getBaseName("no-slashes");
       assertTrue("should have thrown", false);
@@ -63,6 +87,10 @@ public class TestKeyProvider {
       assertTrue(true);
     }
   }
+
+  }
+
+public static class NotParameterizedPart {
 
   @Test
   public void testKeyMaterial() throws Exception {
@@ -284,6 +312,7 @@ public class TestKeyProvider {
     conf.set("a", "A");
     MyKeyProvider kp = new MyKeyProvider(conf);
     Assert.assertEquals("A", kp.getConf().get("a"));
+    }
   }
 
 }

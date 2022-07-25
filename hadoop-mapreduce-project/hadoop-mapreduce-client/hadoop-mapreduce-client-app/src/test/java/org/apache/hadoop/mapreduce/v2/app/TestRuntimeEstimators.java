@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.Arrays;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -80,6 +81,8 @@ import org.apache.hadoop.yarn.util.ControlledClock;
 import org.apache.hadoop.yarn.util.SystemClock;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,6 +90,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.offset;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
+@RunWith(Parameterized.class)
 public class TestRuntimeEstimators {
 
   private static int INITIAL_NUMBER_FREE_SLOTS = 600;
@@ -95,6 +99,27 @@ public class TestRuntimeEstimators {
   private static int REDUCE_SLOT_REQUIREMENT = 4;
   private static int MAP_TASKS = 200;
   private static int REDUCE_TASKS = 150;
+
+  @Parameterized.Parameter(value = 0)
+  public long speculativeRetryAfterNoSpeculate;
+  @Parameterized.Parameter(value = 1) // (any non negative)
+  public long speculativeRetryAfterSpeculate;
+  @Parameterized.Parameter(value = 2) // (any non negative)
+  public double speculativeCapRunningTasks;
+  @Parameterized.Parameter(value = 3) // [0-1]
+  public double speculativeCapTotalTasks;
+  @Parameterized.Parameter(value = 4) // [0-1]
+  public int speculativeMinimumAllowedTasks; // (>=3)
+
+  @Parameterized.Parameters
+  public static Collection<Object> testData() {
+    Object[][] data = new Object[][] { {500L, 5000L, 0.1, 0.001, 5},
+                                       {500L, 200L, 0.001, 0.00001, 1},
+//                                       {1, 1, 1, 0.001, 5}
+//                                       {1, 1, 0, 0, 3}  // Potential Bug #4 -> Todo: investigate
+    };
+    return Arrays.asList(data);
+  }
 
   ControlledClock clock;
 
@@ -121,7 +146,7 @@ public class TestRuntimeEstimators {
       = new AtomicInteger(0);
   private final AtomicLong taskTimeSavedBySpeculation
       = new AtomicLong(0L);
-  
+
   private final RecordFactory recordFactory = RecordFactoryProvider.getRecordFactory(null);
 
   private void coreTestEstimator
@@ -146,22 +171,22 @@ public class TestRuntimeEstimators {
 
     estimator.contextualize(conf, myAppContext);
 
-    conf.setLong(MRJobConfig.SPECULATIVE_RETRY_AFTER_NO_SPECULATE, 500L);
-    conf.setLong(MRJobConfig.SPECULATIVE_RETRY_AFTER_SPECULATE, 5000L);
-    conf.setDouble(MRJobConfig.SPECULATIVECAP_RUNNING_TASKS, 0.1);
-    conf.setDouble(MRJobConfig.SPECULATIVECAP_TOTAL_TASKS, 0.001);
-    conf.setInt(MRJobConfig.SPECULATIVE_MINIMUM_ALLOWED_TASKS, 5);
+    conf.setLong(MRJobConfig.SPECULATIVE_RETRY_AFTER_NO_SPECULATE, speculativeRetryAfterNoSpeculate);
+    conf.setLong(MRJobConfig.SPECULATIVE_RETRY_AFTER_SPECULATE, speculativeRetryAfterSpeculate);
+    conf.setDouble(MRJobConfig.SPECULATIVECAP_RUNNING_TASKS, speculativeCapRunningTasks);
+    conf.setDouble(MRJobConfig.SPECULATIVECAP_TOTAL_TASKS, speculativeCapTotalTasks);
+    conf.setInt(MRJobConfig.SPECULATIVE_MINIMUM_ALLOWED_TASKS, speculativeMinimumAllowedTasks);
     speculator = new DefaultSpeculator(conf, myAppContext, estimator, clock);
     Assert.assertEquals("wrong SPECULATIVE_RETRY_AFTER_NO_SPECULATE value",
-        500L, speculator.getSoonestRetryAfterNoSpeculate());
+            speculativeRetryAfterNoSpeculate, speculator.getSoonestRetryAfterNoSpeculate());
     Assert.assertEquals("wrong SPECULATIVE_RETRY_AFTER_SPECULATE value",
-        5000L, speculator.getSoonestRetryAfterSpeculate());
+            speculativeRetryAfterSpeculate, speculator.getSoonestRetryAfterSpeculate());
     assertThat(speculator.getProportionRunningTasksSpeculatable())
-        .isCloseTo(0.1, offset(0.00001));
+        .isCloseTo(speculativeCapRunningTasks, offset(0.00001));
     assertThat(speculator.getProportionTotalTasksSpeculatable())
-        .isCloseTo(0.001, offset(0.00001));
+        .isCloseTo(speculativeCapTotalTasks, offset(0.00001));
     Assert.assertEquals("wrong SPECULATIVE_MINIMUM_ALLOWED_TASKS value",
-        5, speculator.getMinimumAllowedSpeculativeTasks());
+            speculativeMinimumAllowedTasks, speculator.getMinimumAllowedSpeculativeTasks());
 
     dispatcher.register(Speculator.EventType.class, speculator);
 
@@ -248,12 +273,14 @@ public class TestRuntimeEstimators {
         expectedSpeculations, successfulSpeculations.get());
   }
 
+  // PUTs #26
   @Test
   public void testLegacyEstimator() throws Exception {
     TaskRuntimeEstimator specificEstimator = new LegacyTaskRuntimeEstimator();
     coreTestEstimator(specificEstimator, 3);
   }
 
+  // PUTs #27
   @Test
   public void testExponentialEstimator() throws Exception {
     TaskRuntimeEstimator specificEstimator
@@ -261,6 +288,7 @@ public class TestRuntimeEstimators {
     coreTestEstimator(specificEstimator, 3);
   }
 
+  // PUTs #28
   @Test
   public void testSimpleExponentialEstimator() throws Exception {
     TaskRuntimeEstimator specificEstimator

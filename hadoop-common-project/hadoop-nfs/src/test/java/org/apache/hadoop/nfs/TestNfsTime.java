@@ -22,19 +22,36 @@ import org.junit.Assert;
 import org.apache.hadoop.nfs.NfsTime;
 import org.apache.hadoop.oncrpc.XDR;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.util.Arrays;
+import java.util.Collection;
+
+@RunWith(Parameterized.class)
 public class TestNfsTime {
+
+  @Parameterized.Parameter(value = 0)
+  public int milliseconds;
+
+  @Parameterized.Parameters
+  public static Collection<Object> testMilliSeconds() {
+    Object[] data = new Object[] {0, -1, -101000, 1001, 1000, 999999999, -4567654};
+    return Arrays.asList(data);
+  }
+
+  // PUTs #17
   @Test
   public void testConstructor() {
-    NfsTime nfstime = new NfsTime(1001);
-    Assert.assertEquals(1, nfstime.getSeconds());
-    Assert.assertEquals(1000000, nfstime.getNseconds());
+    NfsTime nfstime = new NfsTime(milliseconds);
+    Assert.assertEquals(milliseconds/1000, nfstime.getSeconds());
+    Assert.assertEquals((milliseconds - (milliseconds/1000)*1000) * 1000000, nfstime.getNseconds());
   }
-  
+  // PUTs #18
   @Test
   public void testSerializeDeserialize() {
     // Serialize NfsTime
-    NfsTime t1 = new NfsTime(1001);
+    NfsTime t1 = new NfsTime(milliseconds);
     XDR xdr = new XDR();
     t1.serialize(xdr);
     

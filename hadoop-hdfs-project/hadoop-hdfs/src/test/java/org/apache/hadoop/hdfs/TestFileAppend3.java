@@ -22,6 +22,8 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -51,8 +53,13 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.After;
+import org.junit.experimental.runners.Enclosed;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 /** This class implements some of tests posted in HADOOP-2658. */
+@RunWith(Enclosed.class)
 public class TestFileAppend3  {
   {
     DFSTestUtil.setNameNodeLogLevel(Level.ALL);
@@ -62,7 +69,6 @@ public class TestFileAppend3  {
         .event.Level.TRACE);
   }
 
-  static final long BLOCK_SIZE = 64 * 1024;
   static final short REPLICATION = 3;
   static final int DATANODE_NUM = 5;
 
@@ -80,7 +86,7 @@ public class TestFileAppend3  {
     cluster = new MiniDFSCluster.Builder(conf).numDataNodes(DATANODE_NUM).build();
     fs = cluster.getFileSystem();
   }
-   
+
   @AfterClass
   public static void tearDown() throws Exception {
     AppendTestUtil.LOG.info("tearDown()");
@@ -88,17 +94,59 @@ public class TestFileAppend3  {
     if(cluster != null) cluster.shutdown();
   }
 
+  @RunWith(Parameterized.class)
+  public static class TheParameterizedPart {
+    @Parameterized.Parameter(value = 0)
+    public long BLOCK_SIZE; // >0 && multiple of 512(checksum) & 4096(buffer size)
+
+  @Parameterized.Parameters
+  public static Collection<Object> testData() {
+    Object[][] data = new Object[][] { {64 * 1024}, // 65536
+//            {64*64}, // testTC12ForAppend2 fails expected 2 got 9
+//            {-1}, //fails , not a multiple of 512
+//            {777}, //fails , not a multiple of 512
+//            {0} // fails, not a multiple of 512
+//            {512}, // testTC12ForAppend2 fails expected 2 got 63
+              {32768}, // passes
+//              {8192}, // testTC12ForAppend2 fails expected 2 got 5
+//              {16384}, // testTC12ForAppend2 fails expected 2 got 3
+//            {4096}, // testTC12ForAppend2 fails expected 2 got 9
+//              {131072} // passes but takes really long
+//              {1024} // testTC12ForAppend2 fails expected 2 got 32
+    };
+    return Arrays.asList(data);
+  }
+
+    @After // deleting created files after tests to avoid file already exist exception in re-run
+    public void endTest() throws IOException {
+      fs.delete(new Path("/TC12/foo0"), true);
+      // delete file, true for recursive
+      fs.delete(new Path("/TC1/foo2"), true);
+      fs.delete(new Path("/TC1/foo"), true);
+      fs.delete(new Path("/TC2/foo"), true);
+      fs.delete(new Path("/TC2/foo2"), true);
+      fs.delete(new Path("/TC5/foo"), true);
+      fs.delete(new Path("/TC7/foo1"), true);
+      fs.delete(new Path("/TC11/foo1"), true);
+      fs.delete(new Path("/TC12/foo1"), true);
+      fs.delete(new Path("/TC5/foo2"), true);
+      fs.delete(new Path("/TC11/foo0"), true);
+      fs.delete(new Path("/TC7/foo0"), true);
+      fs.delete(new Path("/TC7/foo2"), true);
+    }
+
   /**
    * TC1: Append on block boundary.
    * @throws IOException an exception might be thrown
    */
+   // PUTs #5
   @Test
   public void testTC1() throws Exception {
     final Path p = new Path("/TC1/foo");
     System.out.println("p=" + p);
 
     //a. Create file and write one block of data. Close file.
-    final int len1 = (int)BLOCK_SIZE; 
+    final int len1 = (int)BLOCK_SIZE;
     {
       FSDataOutputStream out = fs.create(p, false, buffersize, REPLICATION, BLOCK_SIZE);
       AppendTestUtil.write(out, 0, len1);
@@ -106,17 +154,18 @@ public class TestFileAppend3  {
     }
 
     //   Reopen file to append. Append half block of data. Close file.
-    final int len2 = (int)BLOCK_SIZE/2; 
+    final int len2 = (int)BLOCK_SIZE/2;
     {
       FSDataOutputStream out = fs.append(p);
       AppendTestUtil.write(out, len1, len2);
       out.close();
     }
-    
+
     //b. Reopen file and read 1.5 blocks worth of data. Close file.
     AppendTestUtil.check(fs, p, len1 + len2);
   }
 
+  // PUTs #6
   @Test
   public void testTC1ForAppend2() throws Exception {
     final Path p = new Path("/TC1/foo2");
@@ -147,13 +196,14 @@ public class TestFileAppend3  {
    * TC2: Append on non-block boundary.
    * @throws IOException an exception might be thrown
    */
+  // PUTs #7
   @Test
   public void testTC2() throws Exception {
     final Path p = new Path("/TC2/foo");
     System.out.println("p=" + p);
 
     //a. Create file with one and a half block of data. Close file.
-    final int len1 = (int)(BLOCK_SIZE + BLOCK_SIZE/2); 
+    final int len1 = (int)(BLOCK_SIZE + BLOCK_SIZE/2);
     {
       FSDataOutputStream out = fs.create(p, false, buffersize, REPLICATION, BLOCK_SIZE);
       AppendTestUtil.write(out, 0, len1);
@@ -163,7 +213,7 @@ public class TestFileAppend3  {
     AppendTestUtil.check(fs, p, len1);
 
     //   Reopen file to append quarter block of data. Close file.
-    final int len2 = (int)BLOCK_SIZE/4; 
+    final int len2 = (int)BLOCK_SIZE/4;
     {
       FSDataOutputStream out = fs.append(p);
       AppendTestUtil.write(out, len1, len2);
@@ -174,6 +224,7 @@ public class TestFileAppend3  {
     AppendTestUtil.check(fs, p, len1 + len2);
   }
 
+    // PUTs #8
   @Test
   public void testTC2ForAppend2() throws Exception {
     final Path p = new Path("/TC2/foo2");
@@ -212,6 +263,7 @@ public class TestFileAppend3  {
    * TC5: Only one simultaneous append.
    * @throws IOException an exception might be thrown
    */
+  // PUTs #9
   @Test
   public void testTC5() throws Exception {
     final Path p = new Path("/TC5/foo");
@@ -245,9 +297,10 @@ public class TestFileAppend3  {
     }
 
     //d. On Machine M1, close file.
-    out.close();        
+    out.close();
   }
 
+    // PUTs #10
   @Test
   public void testTC5ForAppend2() throws Exception {
     final Path p = new Path("/TC5/foo2");
@@ -293,9 +346,9 @@ public class TestFileAppend3  {
     final short repl = 2;
     final Path p = new Path("/TC7/foo" + (appendToNewBlock ? "0" : "1"));
     System.out.println("p=" + p);
-    
+
     //a. Create file with replication factor of 2. Write half block of data. Close file.
-    final int len1 = (int)(BLOCK_SIZE/2); 
+    final int len1 = (int)(BLOCK_SIZE/2);
     {
       FSDataOutputStream out = fs.create(p, false, buffersize, repl, BLOCK_SIZE);
       AppendTestUtil.write(out, 0, len1);
@@ -317,7 +370,7 @@ public class TestFileAppend3  {
     cluster.getMaterializedReplica(dn, blk).truncateData(0);
 
     //c. Open file in "append mode".  Append a new block worth of data. Close file.
-    final int len2 = (int)BLOCK_SIZE; 
+    final int len2 = (int)BLOCK_SIZE;
     {
       FSDataOutputStream out = appendToNewBlock ?
           fs.append(p, EnumSet.of(CreateFlag.APPEND, CreateFlag.NEW_BLOCK), 4096, null) : fs.append(p);
@@ -328,16 +381,75 @@ public class TestFileAppend3  {
     //d. Reopen file and read two blocks worth of data.
     AppendTestUtil.check(fs, p, len1 + len2);
   }
-
+    // PUTs #11
   @Test
   public void testTC7() throws Exception {
     testTC7(false);
   }
-
+    // PUTs #12
   @Test
   public void testTC7ForAppend2() throws Exception {
     testTC7(true);
   }
+
+  /**
+   * TC12: Append to partial CRC chunk
+   */
+  private void testTC12(boolean appendToNewBlock) throws Exception {
+    final Path p = new Path("/TC12/foo" + (appendToNewBlock ? "0" : "1"));
+    System.out.println("p=" + p);
+
+    //a. Create file with a block size of 64KB
+    //   and a default io.bytes.per.checksum of 512 bytes.
+    //   Write 25687 bytes of data. Close file.
+    final int len1 = 25687;
+    {
+      FSDataOutputStream out = fs.create(p, false, buffersize, REPLICATION, BLOCK_SIZE);
+      AppendTestUtil.write(out, 0, len1);
+      out.close();
+    }
+
+    //b. Reopen file in "append" mode. Append another 5877 bytes of data. Close file.
+    final int len2 = 5877;
+    {
+      FSDataOutputStream out = appendToNewBlock ?
+          fs.append(p, EnumSet.of(CreateFlag.APPEND, CreateFlag.NEW_BLOCK), 4096, null) :
+          fs.append(p);
+      AppendTestUtil.write(out, len1, len2);
+      out.close();
+    }
+
+    //c. Reopen file and read 25687+5877 bytes of data from file. Close file.
+    AppendTestUtil.check(fs, p, len1 + len2);
+    if (appendToNewBlock) {
+      LocatedBlocks blks = fs.dfs.getLocatedBlocks(p.toString(), 0);
+      Assert.assertEquals(2, blks.getLocatedBlocks().size());
+      Assert.assertEquals(len1, blks.getLocatedBlocks().get(0).getBlockSize());
+      Assert.assertEquals(len2, blks.getLocatedBlocks().get(1).getBlockSize());
+      AppendTestUtil.check(fs, p, 0, len1);
+      AppendTestUtil.check(fs, p, len1, len2);
+    }
+  }
+
+  // PUTs #13
+  @Test
+  public void testTC12() throws Exception {
+    testTC12(false);
+  }
+
+  // Potential Bug #1 -> changing expected changes actual for
+  // Assert.assertEquals(2, blks.getLocatedBlocks().size()); in testTC12
+  // expected equation can be -> (31564/BLOCK_SIZE + 2) but actual changes
+  // PUTs #14
+  @Test
+  public void testTC12ForAppend2() throws Exception {
+    testTC12(true);
+  }
+  }
+
+  public static class NotParameterizedPart {
+
+    static final long BLOCK_SIZE = 64 * 1024;
 
   /**
    * TC11: Racing rename
@@ -347,7 +459,7 @@ public class TestFileAppend3  {
     System.out.println("p=" + p);
 
     //a. Create file and write one block of data. Close file.
-    final int len1 = (int)BLOCK_SIZE; 
+    final int len1 = (int)BLOCK_SIZE;
     {
       FSDataOutputStream out = fs.create(p, false, buffersize, REPLICATION, BLOCK_SIZE);
       AppendTestUtil.write(out, 0, len1);
@@ -358,15 +470,15 @@ public class TestFileAppend3  {
     FSDataOutputStream out = appendToNewBlock ?
         fs.append(p, EnumSet.of(CreateFlag.APPEND, CreateFlag.NEW_BLOCK), 4096, null) :
         fs.append(p);
-    final int len2 = (int)BLOCK_SIZE/2; 
+    final int len2 = (int)BLOCK_SIZE/2;
     AppendTestUtil.write(out, len1, len2);
     out.hflush();
-    
+
     //c. Rename file to file.new.
     final Path pnew = new Path(p + ".new");
     assertTrue(fs.rename(p, pnew));
 
-    //d. Close file handle that was opened in (b). 
+    //d. Close file handle that was opened in (b).
     out.close();
 
     //check block sizes
@@ -399,55 +511,6 @@ public class TestFileAppend3  {
     testTC11(true);
   }
 
-  /** 
-   * TC12: Append to partial CRC chunk
-   */
-  private void testTC12(boolean appendToNewBlock) throws Exception {
-    final Path p = new Path("/TC12/foo" + (appendToNewBlock ? "0" : "1"));
-    System.out.println("p=" + p);
-    
-    //a. Create file with a block size of 64KB
-    //   and a default io.bytes.per.checksum of 512 bytes.
-    //   Write 25687 bytes of data. Close file.
-    final int len1 = 25687; 
-    {
-      FSDataOutputStream out = fs.create(p, false, buffersize, REPLICATION, BLOCK_SIZE);
-      AppendTestUtil.write(out, 0, len1);
-      out.close();
-    }
-
-    //b. Reopen file in "append" mode. Append another 5877 bytes of data. Close file.
-    final int len2 = 5877; 
-    {
-      FSDataOutputStream out = appendToNewBlock ?
-          fs.append(p, EnumSet.of(CreateFlag.APPEND, CreateFlag.NEW_BLOCK), 4096, null) :
-          fs.append(p);
-      AppendTestUtil.write(out, len1, len2);
-      out.close();
-    }
-
-    //c. Reopen file and read 25687+5877 bytes of data from file. Close file.
-    AppendTestUtil.check(fs, p, len1 + len2);
-    if (appendToNewBlock) {
-      LocatedBlocks blks = fs.dfs.getLocatedBlocks(p.toString(), 0);
-      Assert.assertEquals(2, blks.getLocatedBlocks().size());
-      Assert.assertEquals(len1, blks.getLocatedBlocks().get(0).getBlockSize());
-      Assert.assertEquals(len2, blks.getLocatedBlocks().get(1).getBlockSize());
-      AppendTestUtil.check(fs, p, 0, len1);
-      AppendTestUtil.check(fs, p, len1, len2);
-    }
-  }
-
-  @Test
-  public void testTC12() throws Exception {
-    testTC12(false);
-  }
-
-  @Test
-  public void testTC12ForAppend2() throws Exception {
-    testTC12(true);
-  }
-
   /**
    * Append to a partial CRC chunk and the first write does not fill up the
    * partial CRC trunk
@@ -458,7 +521,7 @@ public class TestFileAppend3  {
         + (appendToNewBlock ? "0" : "1"));
     final int fileLen = 513;
     System.out.println("p=" + p);
-    
+
     byte[] fileContents = AppendTestUtil.initBuffer(fileLen);
 
     // create a new file.
@@ -591,5 +654,6 @@ public class TestFileAppend3  {
   @Test
   public void testAppendToPartialChunkforAppend2() throws IOException {
     testAppendToPartialChunk(true);
+  }
   }
 }

@@ -52,6 +52,8 @@ import org.apache.hadoop.test.Whitebox;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
@@ -73,6 +75,7 @@ import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -105,7 +108,9 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 /** Unit tests for RPC. */
+// Potential Bug #2 -> All tests won't run with error -> conf is not set
 @SuppressWarnings("deprecation")
+@RunWith(Parameterized.class)
 public class TestRPC extends TestRpcBase {
 
   public static final Logger LOG = LoggerFactory.getLogger(TestRPC.class);
@@ -133,7 +138,7 @@ public class TestRPC extends TestRpcBase {
 
   public static class TestImpl implements TestProtocol {
     int fastPingCounter = 0;
-    
+
     @Override
     public long getProtocolVersion(String protocol, long clientVersion) {
       return TestProtocol.versionID;
@@ -147,7 +152,7 @@ public class TestRPC extends TestRpcBase {
 
     @Override
     public void ping() {}
-    
+
     @Override
     public void sleep(long delay) throws InterruptedException {
       Thread.sleep(delay);
@@ -344,6 +349,26 @@ public class TestRPC extends TestRpcBase {
 
   }
 
+    @Parameterized.Parameter(value = 0)
+    public int testNumHandler1; //  number of method handler threads to run
+    @Parameterized.Parameter(value = 1)
+    public int testNumHandler2; //  number of method handler threads to run
+    @Parameterized.Parameter(value = 2)
+    public int numberOfStopProxy; //  number of method handler threads to run
+
+    @Parameterized.Parameters
+    public static Collection<Object[]> data() {
+      Object[][] data = new Object[][] { { 1, 1 , 0},
+              { 3, 4 , 1},
+              { 999, 99999 , 5},
+//                                       { 0, 5 , 1}, // fails -> java.lang.IllegalArgumentException
+//                                       { 1, -1 , 1} // fails -> java.lang.IllegalArgumentException
+      };
+
+      return Arrays.asList(data);
+    }
+
+  // PUTs #24
   @Test
   public void testConfRpc() throws IOException {
     Server server = newServerBuilder(conf)
@@ -361,15 +386,15 @@ public class TestRPC extends TestRpcBase {
     assertEquals(confReaders, server.getNumReaders());
 
     server = newServerBuilder(conf)
-        .setNumHandlers(1).setnumReaders(3).setQueueSizePerHandler(200)
+        .setNumHandlers(testNumHandler1).setnumReaders(confReaders).setQueueSizePerHandler(confQ)
         .setVerbose(false).build();
 
-    assertEquals(3, server.getNumReaders());
-    assertEquals(200, server.getMaxQueueSize());
+    assertEquals(confReaders, server.getNumReaders());
+    assertEquals(testNumHandler1*confQ, server.getMaxQueueSize());
 
-    server = newServerBuilder(conf).setQueueSizePerHandler(10)
-        .setNumHandlers(2).setVerbose(false).build();
-    assertEquals(2 * 10, server.getMaxQueueSize());
+    server = newServerBuilder(conf).setQueueSizePerHandler(confQ)
+        .setNumHandlers(testNumHandler2).setVerbose(false).build();
+    assertEquals(testNumHandler2 * confQ, server.getMaxQueueSize());
   }
 
   @Test
@@ -602,7 +627,7 @@ public class TestRPC extends TestRpcBase {
       } else {
         assertCounter("RpcAuthorizationSuccesses", 1L, rb);
       }
-      //since we don't have authentication turned ON, we should see 
+      //since we don't have authentication turned ON, we should see
       // 0 for the authentication successes and 0 for failure
       assertCounter("RpcAuthenticationFailures", 0L, rb);
       assertCounter("RpcAuthenticationSuccesses", 0L, rb);
@@ -680,6 +705,7 @@ public class TestRPC extends TestRpcBase {
     RPC.stopProxy(MockitoUtil.mockProtocol(TestProtocol.class));
   }
 
+  // PUTs #25
   @Test
   public void testStopProxy() throws IOException {
     RPC.setProtocolEngine(conf,
@@ -689,11 +715,14 @@ public class TestRPC extends TestRpcBase {
         StoppedProtocol.versionID, null, conf);
     StoppedInvocationHandler invocationHandler = (StoppedInvocationHandler)
         Proxy.getInvocationHandler(proxy);
-    assertEquals(0, invocationHandler.getCloseCalled());
-    RPC.stopProxy(proxy);
-    assertEquals(1, invocationHandler.getCloseCalled());
+    for(int i=0;i<numberOfStopProxy;i++) {
+      RPC.stopProxy(proxy);
+    }
+    assertEquals(numberOfStopProxy, invocationHandler.getCloseCalled());
   }
 
+  // Potential Bug #3 :- test failure  -> java.lang.ClassCastException: org.apache.hadoop.ipc.WritableRpcEngine$Invoker
+  // cannot be cast to org.apache.hadoop.ipc.TestRPC$StoppedInvocationHandler
   @Test
   public void testWrappedStopProxy() throws IOException {
     StoppedProtocol wrappedProxy = RPC.getProxy(StoppedProtocol.class,
