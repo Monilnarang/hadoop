@@ -647,7 +647,7 @@ public abstract class KeyProvider implements Closeable {
    */
   public static String getBaseName(String versionName) throws IOException {
     if (versionName == null) {
-       throw new IOException("Null value found in versionName");
+      throw new IOException("Null value found in versionName");
      }
     int div = versionName.lastIndexOf('@');
     if (div == -1) {
