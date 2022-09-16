@@ -159,8 +159,8 @@ public class DefaultStringifier<T> implements Stringifier<T> {
       String keyName) throws IOException {
 
     if (items.length == 0) {
-         conf.set(keyName, "");
-         return;
+      conf.set(keyName, "");
+      return;
      }
     DefaultStringifier<K> stringifier = new DefaultStringifier<K>(conf, 
         GenericsUtil.getClass(items[0]));
