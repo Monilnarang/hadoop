@@ -646,7 +646,6 @@ public abstract class KeyProvider implements Closeable {
    * @throws IOException raised on errors performing I/O.
    */
   public static String getBaseName(String versionName) throws IOException {
-    int div = versionName.lastIndexOf('@');
     if (div == -1) {
       throw new IOException("No version in key path " + versionName);
     }
