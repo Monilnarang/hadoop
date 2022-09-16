@@ -161,7 +161,7 @@ public class DefaultStringifier<T> implements Stringifier<T> {
     if (items.length == 0) {
       conf.set(keyName, "");
       return;
-     }
+    }
     DefaultStringifier<K> stringifier = new DefaultStringifier<K>(conf, 
         GenericsUtil.getClass(items[0]));
     try {
