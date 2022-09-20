@@ -252,6 +252,14 @@ public class TestDelegationToken {
     Assume.assumeFalse(!match.matches() && renewer.contains("@"));
     match = nameParser.matcher(realUser);
     Assume.assumeFalse(!match.matches() && realUser.contains("@"));
+    String kerberosRule =
+        "RULE:[1:$1]/L\n" +
+        "RULE:[2:$1]/L\n" +
+        "RULE:[2:$1;$2](^.*;admin$)s/;admin$///L\n" +
+        "RULE:[2:$1;$2](^.*;guest$)s/;guest$//g/L\n" +
+        "DEFAULT";
+
+    KerberosName.setRules(kerberosRule);
     TestDelegationTokenIdentifier origToken = new 
                         TestDelegationTokenIdentifier(new Text(owner),
                                           new Text(renewer),
@@ -268,21 +276,13 @@ public class TestDelegationToken {
     origToken.write(outBuf);
     inBuf.reset(outBuf.getData(), 0, outBuf.getLength());
     newToken.readFields(inBuf);
-    
-    // now test the fields
-//    String kerberosRule =
-//            "RULE:[1:$1@$0](.*@EXAMPLE.COM)s/@.*//\nDEFAULT";
-//    String kerberosRule =
-//            "RULE:[1:$1@$0](.*@BAR)s/@.*//\nDEFAULT";
 
-//    KerberosName.setRules(kerberosRule);
-//    KerberosName.setRules("DEFAULT");
     if ( (owner == null) || (owner.toString().isEmpty())) {
          assertNull(newToken.getUser());
     } else {
         assertEquals(owner, newToken.getUser().getUserName());
     }
-    assertEquals(new Text(renewer), newToken.getRenewer());
+    assertEquals(new Text(renewer.split("@")[0]), newToken.getRenewer());
     if ((realUser == null) || (realUser.isEmpty()) || realUser.equals(owner)) {
         assertEquals(realUser, newToken.getRealUser().toString());
     } else {
