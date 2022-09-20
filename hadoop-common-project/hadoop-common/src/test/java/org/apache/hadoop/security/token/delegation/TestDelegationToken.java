@@ -355,6 +355,14 @@ public class TestDelegationToken {
   @Test
   @Parameters(method = "valueSetForUserName")
   public void testGetUserWithOwnerEqualsReal(String str) {
+    String kerberosRule =
+        "RULE:[1:$1]/L\n" +
+        "RULE:[2:$1]/L\n" +
+        "RULE:[2:$1;$2](^.*;admin$)s/;admin$///L\n" +
+        "RULE:[2:$1;$2](^.*;guest$)s/;guest$//g/L\n" +
+        "DEFAULT";
+
+    KerberosName.setRules(kerberosRule);
     Matcher match = nameParser.matcher(str);
     Assume.assumeFalse(!match.matches() && str.contains("@"));
     Text owner = new Text(str);
@@ -384,6 +392,14 @@ public class TestDelegationToken {
   @Test
   @Parameters(method = "valueSetForTwoUserName")
   public void testGetUserWithOwnerAndReal(String ownerStr, String realUserStr) {
+    String kerberosRule =
+        "RULE:[1:$1]/L\n" +
+        "RULE:[2:$1]/L\n" +
+        "RULE:[2:$1;$2](^.*;admin$)s/;admin$///L\n" +
+        "RULE:[2:$1;$2](^.*;guest$)s/;guest$//g/L\n" +
+        "DEFAULT";
+
+    KerberosName.setRules(kerberosRule);
     Matcher match = nameParser.matcher(ownerStr);
     Assume.assumeFalse(!match.matches() && ownerStr.contains("@"));
     nameParser.matcher(realUserStr);
@@ -702,6 +718,14 @@ public class TestDelegationToken {
   ",,owner@123"
   })
   public void testSimpleDtidSerialization(String owner, String renewer, String realUser) throws IOException {
+    String kerberosRule =
+        "RULE:[1:$1]/L\n" +
+        "RULE:[2:$1]/L\n" +
+        "RULE:[2:$1;$2](^.*;admin$)s/;admin$///L\n" +
+        "RULE:[2:$1;$2](^.*;guest$)s/;guest$//g/L\n" +
+        "DEFAULT";
+
+    KerberosName.setRules(kerberosRule);
     Matcher match = nameParser.matcher(owner);
     Assume.assumeFalse(!match.matches() && owner.contains("@"));
     match = nameParser.matcher(renewer);
