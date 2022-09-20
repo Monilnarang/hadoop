@@ -419,9 +419,6 @@ public class KerberosName {
       + "Using default of " + DEFAULT_MECHANISM);
       ruleMechanism = DEFAULT_MECHANISM;
     }
-    if (rules == null) {
-        return serviceName;
-    }
     for(Rule r: rules) {
       String result = r.apply(params, ruleMechanism);
       if (result != null) {
