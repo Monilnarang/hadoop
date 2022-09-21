@@ -67,7 +67,7 @@ public class TestBlockDecompressorStream {
     // check compressed output 
     buf = bytesOut.toByteArray();
     assertEquals("empty file compressed output size is not " + (Math.max(0, bufLen) + 4),
-        Math.max(0, bufLen) + 4, buf.length);
+        Math.max(0, bufLen) + 4, buf.length); // formula
     
     // use compressed output as input for decompression
     bytesIn = new ByteArrayInputStream(buf);

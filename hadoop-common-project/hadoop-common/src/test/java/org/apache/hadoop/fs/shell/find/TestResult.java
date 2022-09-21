@@ -57,8 +57,8 @@ public class TestResult {
   @Test
   @Parameters(method = "valueSetForTestingSingleResult")
   public void testSingleResult(Result result, boolean isPass, boolean isDescend) {
-    assertEquals(isPass, result.isPass());
-    assertEquals(isDescend, result.isDescend());
+    assertEquals(isPass, result.isPass()); // changed assert // used parameter directly
+    assertEquals(isDescend, result.isDescend()); // changed assert // used parameter directly
   }
 
   private Object[] valueSetForTestingTwoEqualResults() {
@@ -117,5 +117,5 @@ public class TestResult {
   @Parameters(method = "valueSetForTestingUnequalCombinations")
   public void notEquals(Result one, Result two) {
     assertFalse(one.equals(two));
-  }
+  } // used parameter directly
 }

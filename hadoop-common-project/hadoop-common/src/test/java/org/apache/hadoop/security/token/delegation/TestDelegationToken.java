@@ -280,18 +280,18 @@ public class TestDelegationToken {
     if ( (owner == null) || (owner.toString().isEmpty())) {
          assertNull(newToken.getUser());
     } else {
-        assertEquals(owner, newToken.getUser().getUserName());
+        assertEquals(owner, newToken.getUser().getUserName()); // used parameter directly
     }
-    assertEquals(new Text(renewer.split("@")[0]), newToken.getRenewer());
+    assertEquals(new Text(renewer.split("@")[0]), newToken.getRenewer()); // formula
     if ((realUser == null) || (realUser.isEmpty()) || realUser.equals(owner)) {
-        assertEquals(realUser, newToken.getRealUser().toString());
+        assertEquals(realUser, newToken.getRealUser().toString()); // used parameter directly
     } else {
-        assertEquals(realUser, newToken.getUser().getRealUser().getUserName());
+        assertEquals(realUser, newToken.getUser().getRealUser().getUserName()); // used parameter directly
     }
-    assertEquals(issueDate, newToken.getIssueDate());
-    assertEquals(masterKeyId, newToken.getMasterKeyId());
-    assertEquals(maxDate, newToken.getMaxDate());
-    assertEquals(sequenceNumber, newToken.getSequenceNumber());
+    assertEquals(issueDate, newToken.getIssueDate()); // used parameter directly
+    assertEquals(masterKeyId, newToken.getMasterKeyId()); // used parameter directly
+    assertEquals(maxDate, newToken.getMaxDate()); // used parameter directly
+    assertEquals(sequenceNumber, newToken.getSequenceNumber()); // used parameter directly
     assertEquals(origToken, newToken);
   }
   
@@ -347,7 +347,7 @@ public class TestDelegationToken {
         assertNull(ugi);
     } else {
         assertNull(ugi.getRealUser());
-        assertEquals(owner, ugi.getUserName());
+        assertEquals(owner, ugi.getUserName()); // used parameter directly
         assertEquals(AuthenticationMethod.TOKEN, ugi.getAuthenticationMethod());
     }
   }
@@ -373,7 +373,7 @@ public class TestDelegationToken {
         assertNull(ugi);
     } else {
         assertNull(ugi.getRealUser());
-        assertEquals(str, ugi.getUserName());
+        assertEquals(str, ugi.getUserName()); // used parameter directly
         assertEquals(AuthenticationMethod.TOKEN, ugi.getAuthenticationMethod());
     }
   }
@@ -411,8 +411,8 @@ public class TestDelegationToken {
     UserGroupInformation ugi = ident.getUser();
     assertNotNull(ugi.getRealUser());
     assertNull(ugi.getRealUser().getRealUser());
-    assertEquals(ownerStr, ugi.getUserName());
-    assertEquals(realUserStr, ugi.getRealUser().getUserName());
+    assertEquals(ownerStr, ugi.getUserName()); // used parameter directly
+    assertEquals(realUserStr, ugi.getRealUser().getUserName()); // used parameter directly
     assertEquals(AuthenticationMethod.PROXY,
                  ugi.getAuthenticationMethod());
     assertEquals(AuthenticationMethod.TOKEN,
@@ -443,11 +443,11 @@ public class TestDelegationToken {
       Token<TestDelegationTokenIdentifier>[] tokens = new Token[numberOfTokens];
       for (int i = 0; i < numberOfTokens; i++) {
         tokens[i] = generateDelegationToken(dtSecretManager, "SomeUser", "JobTracker");
-        assertThat(dtSecretManager.getCurrentTokensSize()).isEqualTo(i + 1);
+        assertThat(dtSecretManager.getCurrentTokensSize()).isEqualTo(i + 1); // some manipulation of parameter
       }
       for (int i = 0; i < numberOfTokens; i++) {
         dtSecretManager.cancelToken(tokens[i], "JobTracker");
-        assertThat(dtSecretManager.getCurrentTokensSize()).isEqualTo(numberOfTokens - i - 1);
+        assertThat(dtSecretManager.getCurrentTokensSize()).isEqualTo(numberOfTokens - i - 1); // some manipulation of parameter
       }
       assertThat(dtSecretManager.getCurrentTokensSize()).isZero();
     } finally {
@@ -733,7 +733,7 @@ public class TestDelegationToken {
     match = nameParser.matcher(realUser);
     Assume.assumeFalse(!match.matches() && realUser.contains("@"));
     assertTrue(testDelegationTokenIdentiferSerializationRoundTrip(
-        new Text(owner), new Text(renewer), new Text(realUser)));
+        new Text(owner), new Text(renewer), new Text(realUser))); // used parameter directly
   }
   
   @Test
@@ -791,7 +791,7 @@ public class TestDelegationToken {
         }
         dtSecretManagers[i] =
         new TestDelegationTokenSecretManager(0, 0, 0, 0);
-        assertNotNull(dtSecretManagers[i].getMetrics());
+        assertNotNull(dtSecretManagers[i].getMetrics()); // some manipulation of parameter
     }
 
   }

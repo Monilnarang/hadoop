@@ -48,8 +48,8 @@ public class TestCredentialProvider {
   public void testCredentialEntry(char [] key1, String alias) throws Exception {
     CredentialProvider.CredentialEntry obj =
         new CredentialProvider.CredentialEntry(alias, key1);
-    assertEquals(alias, obj.getAlias());
-    assertArrayEquals(key1, obj.getCredential());
+    assertEquals(alias, obj.getAlias()); // used parameter directly
+    assertArrayEquals(key1, obj.getCredential()); // used parameter directly
   }
 
   @Test
@@ -63,7 +63,7 @@ public class TestCredentialProvider {
   "https://rootuser#abcxy23, outer://https@rootuser#abcxy23"
   })
   public void testUnnestUri(String pathString, String uriString) throws Exception {
-    assertEquals(new Path(pathString), ProviderUtils.unnestUri(new URI(uriString)));
+    assertEquals(new Path(pathString), ProviderUtils.unnestUri(new URI(uriString))); // used parameter directly
     // give time to thinking about generalizing above assert (unnestUri found to be too complex for a one liner)
   }
 }

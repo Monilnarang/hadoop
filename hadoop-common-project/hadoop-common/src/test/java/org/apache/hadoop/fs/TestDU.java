@@ -191,14 +191,14 @@ public class TestDU {
     createFile(file, fileSize);
     DU du = new DU(file, interval, jitter, initialUse);
     du.init();
-    assertTrue("Initial usage setting not honored", du.getUsed() == initialUse);
+    assertTrue("Initial usage setting not honored", du.getUsed() == initialUse); // used parameter directly
 
     // wait until the first du runs.
     try {
       Thread.sleep(sleep);
     } catch (InterruptedException ie) {}
 
-    assertTrue("Usage didn't get updated", du.getUsed() == fileSize);
+    assertTrue("Usage didn't get updated", du.getUsed() == fileSize); // used parameter directly
   }
 
 

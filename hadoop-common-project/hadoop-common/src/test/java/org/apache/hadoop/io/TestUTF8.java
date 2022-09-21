@@ -162,7 +162,7 @@ public class TestUTF8 {
         DataOutputBuffer dob = new DataOutputBuffer();
         new UTF8(s).write(dob);
 
-        assertEquals(s, new String(dob.getData(), 2, dob.getLength()-2, "UTF-8"));
+        assertEquals(s, new String(dob.getData(), 2, dob.getLength()-2, "UTF-8")); // used parameter directly
       }
 
       /**
@@ -189,12 +189,12 @@ public class TestUTF8 {
 
         // This encodes to 4 bytes in UTF-8:
         byte[] encoded = symbolString.getBytes("UTF-8");
-        assertEquals(bytes.length, encoded.length);
-        assertEquals(hexString, StringUtils.byteToHexString(encoded));
+        assertEquals(bytes.length, encoded.length); // some manipulation of parameter
+        assertEquals(hexString, StringUtils.byteToHexString(encoded)); // some manipulation of parameter
 
         // Decode back to String using our own decoder
         String roundTrip = UTF8.fromBytes(encoded);
-        assertEquals(symbolString, roundTrip);
+        assertEquals(symbolString, roundTrip); // used parameter directly
       }
 
       private Object[] valueSetForInvalidOrTruncated() {
@@ -225,7 +225,7 @@ public class TestUTF8 {
           fail("did not throw an exception");
         } catch (UTFDataFormatException utfde) {
           GenericTestUtils.assertExceptionContains(
-              expectedText, utfde);
+              expectedText, utfde); // used parameter directly
         }
       }
   }

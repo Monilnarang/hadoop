@@ -63,7 +63,7 @@ public class TestServiceLauncherCreationFailures extends
   @Test
   @Parameters(method = "valueSetForServiceCreationFails")
   public void testServiceCreationFails(String classname) throws Throwable {
-    assertServiceCreationFails(classname);
+    assertServiceCreationFails(classname); // used parameter directly
   }
 
   private Object[] valueSetForLaunchOutComes() {
@@ -81,7 +81,7 @@ public class TestServiceLauncherCreationFailures extends
   @Parameters(method = "valueSetForLaunchOutComes")
   public void testFailInInit(int exitCode, String name) throws Throwable {
     Assume.assumeTrue(exitCode == -1 || exitCode == -2);
-    assertLaunchOutcome(exitCode, "", name);
+    assertLaunchOutcome(exitCode, "", name); // used parameter directly
   }
 
   @Test

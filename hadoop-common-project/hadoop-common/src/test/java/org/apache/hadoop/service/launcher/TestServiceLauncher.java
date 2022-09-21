@@ -55,7 +55,7 @@ public class TestServiceLauncher extends AbstractServiceLauncherTestBase {
   @Test
   @Parameters(method = "valueSetForTestingServicesAndConstructors")
   public void testRunServicesAndConstructors(String... args) throws Throwable {
-    assertRuns(args);
+    assertRuns(args); // used parameter directly
   }
 
   /**
@@ -94,7 +94,7 @@ public class TestServiceLauncher extends AbstractServiceLauncherTestBase {
   @Test
   @Parameters(method = "valueSetForTestingExceptionAndExits")
   public void testExceptionsAndExits(int expected, String text, String... args) throws Throwable {
-    assertLaunchOutcome(expected, text, args);
+    assertLaunchOutcome(expected, text, args); // used parameter directly
   }
 
   /**
@@ -112,7 +112,7 @@ public class TestServiceLauncher extends AbstractServiceLauncherTestBase {
   })
   public void testBasicExceptionFormatting(int argValue, String expectedText) throws Throwable {
     ServiceLaunchException ex = new ServiceLaunchException(0, "%03x", argValue);
-    assertExceptionContains(expectedText, ex);
+    assertExceptionContains(expectedText, ex); // used parameter directly
   }
 
   @Test
@@ -129,7 +129,7 @@ public class TestServiceLauncher extends AbstractServiceLauncherTestBase {
   })
   public void testNotEnoughArgsExceptionFormatting(String format) throws Throwable {
     ServiceLaunchException ex = new ServiceLaunchException(0, format);
-    assertExceptionContains(format, ex);
+    assertExceptionContains(format, ex); // used parameter directly
   }
 
   private Object[] valueSetForCause() {
@@ -151,7 +151,7 @@ public class TestServiceLauncher extends AbstractServiceLauncherTestBase {
     ServiceLaunchException ex =
         new ServiceLaunchException(0, "%03x: %s", 32, cause);
     assertExceptionContains("020", ex);
-    assertExceptionContains(causeStr, ex);
+    assertExceptionContains(causeStr, ex); // used parameter directly
     assertSame(cause, ex.getCause());
   }
 
@@ -163,7 +163,7 @@ public class TestServiceLauncher extends AbstractServiceLauncherTestBase {
     ServiceLaunchException ex =
         new ServiceLaunchException(0, "%03x:", 32, cause);
     assertExceptionContains("020", ex);
-    assertFalse(ex.getMessage().contains(causeStr));
+    assertFalse(ex.getMessage().contains(causeStr)); // used parameter directly
     assertSame(cause, ex.getCause());
   }
 

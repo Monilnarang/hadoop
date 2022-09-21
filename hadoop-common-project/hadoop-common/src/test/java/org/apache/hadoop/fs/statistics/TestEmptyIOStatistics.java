@@ -56,7 +56,7 @@ public class TestEmptyIOStatistics extends AbstractHadoopTestBase {
   @Test
   @Parameters(method = "testParametersForKey")
   public void testUnknownStatistic(String key) throws Throwable {
-    assertStatisticCounterIsUntracked(empty, key);
+    assertStatisticCounterIsUntracked(empty, key); // used parameter directly
   }
 
   @Test
@@ -65,7 +65,7 @@ public class TestEmptyIOStatistics extends AbstractHadoopTestBase {
     // expect an exception to be raised when an assertion
     // is made that an unknown statistic is tracked,.
     assertThatThrownBy(() ->
-        assertStatisticCounterIsTracked(empty, key))
+        assertStatisticCounterIsTracked(empty, key)) // used parameter directly
         .isInstanceOf(AssertionError.class);
   }
 
@@ -86,7 +86,7 @@ public class TestEmptyIOStatistics extends AbstractHadoopTestBase {
     // expect an exception to be raised when
     // an assertion is made about the value of an unknown statistics
     assertThatThrownBy(() ->
-        verifyStatisticCounterValue(empty, key, value))
+        verifyStatisticCounterValue(empty, key, value)) // used parameter directly
         .isInstanceOf(AssertionError.class);
   }
 
@@ -126,7 +126,7 @@ public class TestEmptyIOStatistics extends AbstractHadoopTestBase {
   @Test
   @Parameters(method = "testParametersForStringifyNulls")
   public void testStringifyNulls(String str) throws Throwable {
-    assertThat(str)
+    assertThat(str) // used parameter directly
         .describedAs("Null statistics should stringify to \"\"")
         .isEmpty();
   }

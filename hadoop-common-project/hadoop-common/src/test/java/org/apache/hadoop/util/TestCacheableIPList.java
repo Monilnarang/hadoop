@@ -75,7 +75,7 @@ public class TestCacheableIPList {
         new FileBasedIPList("ips.txt"),timeout);
 
     assertEquals(ipToCHeck + " is" + (expectBool ? " not " : " " ) + "in the list",
-        expectBool, cipl.isIn(ipToCHeck));
+        expectBool, cipl.isIn(ipToCHeck)); // used parameter directly
 
     TestFileBasedIPList.removeFile("ips.txt");
 
@@ -88,7 +88,7 @@ public class TestCacheableIPList {
     }
 
     assertEquals(ipToCHeck + " is" + (expectBoolAfter ? " not " : " " ) + "in the list",
-        expectBoolAfter, cipl.isIn(ipToCHeck));
+        expectBoolAfter, cipl.isIn(ipToCHeck)); // used parameter directly
 
     TestFileBasedIPList.removeFile("ips.txt");
   }

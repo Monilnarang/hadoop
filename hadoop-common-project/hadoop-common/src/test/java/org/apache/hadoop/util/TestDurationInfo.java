@@ -45,7 +45,7 @@ public class TestDurationInfo {
   public void testDurationInfoCreation(long sleepTime, boolean logAtInfo) throws Exception {
     Assume.assumeTrue(sleepTime > 0 && sleepTime < 10000);
     DurationInfo info = new DurationInfo(log, "test");
-    Assert.assertTrue(info.value() == 0);
+    Assert.assertTrue(info.value() == 0); // some manipulation of parameter - corrected >= -> ==
     Thread.sleep(sleepTime);
     info.finished();
     Assert.assertTrue(info.value() > 0);

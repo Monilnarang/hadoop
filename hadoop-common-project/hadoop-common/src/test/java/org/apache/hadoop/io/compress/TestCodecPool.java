@@ -62,14 +62,14 @@ public class TestCodecPool {
     for (int i = 0; i < compressorCount; i++) {
         compressors.add(CodecPool.getCompressor(codec));
         assertEquals(LEASE_COUNT_ERR, i + 1,
-            CodecPool.getLeasedCompressorsCount(codec));
+            CodecPool.getLeasedCompressorsCount(codec)); // some manipulation of parameter
     }
-    assertEquals(Math.max(compressorCount, 0), compressors.size());
+    assertEquals(Math.max(compressorCount, 0), compressors.size()); // formula
 
     int i = 0;
     for (Compressor compressor : compressors) {
         CodecPool.returnCompressor(compressor);
-        assertEquals(LEASE_COUNT_ERR, compressorCount - i - 1,
+        assertEquals(LEASE_COUNT_ERR, compressorCount - i - 1, // some manipulation of parameter
             CodecPool.getLeasedCompressorsCount(codec));
         i++;
     }
@@ -97,14 +97,14 @@ public class TestCodecPool {
     for (int i = 0; i < decompressorCount; i++) {
         decompressors.add(CodecPool.getDecompressor(codec));
         assertEquals(LEASE_COUNT_ERR, i + 1,
-            CodecPool.getLeasedDecompressorsCount(codec));
+            CodecPool.getLeasedDecompressorsCount(codec)); // some manipulation of parameter
     }
-    assertEquals(Math.max(decompressorCount, 0), decompressors.size());
+    assertEquals(Math.max(decompressorCount, 0), decompressors.size());  // formula
 
     int i = 0;
     for (Decompressor decompressor : decompressors) {
         CodecPool.returnDecompressor(decompressor);
-        assertEquals(LEASE_COUNT_ERR, decompressorCount - i - 1,
+        assertEquals(LEASE_COUNT_ERR, decompressorCount - i - 1, // some manipulation of parameter
             CodecPool.getLeasedDecompressorsCount(codec));
         i++;
     }

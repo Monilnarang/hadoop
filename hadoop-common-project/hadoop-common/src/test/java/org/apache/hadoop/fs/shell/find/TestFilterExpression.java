@@ -84,8 +84,8 @@ public class TestFilterExpression {
     Assume.assumeTrue(depth == -1);
     PathData item = mock(PathData.class);
     when(expr.apply(item, depth)).thenReturn(Result.PASS).thenReturn(Result.FAIL);
-    assertEquals(Result.PASS, test.apply(item, depth));
-    assertEquals(Result.FAIL, test.apply(item, depth));
+    assertEquals(Result.PASS, test.apply(item, depth)); // used parameter directly
+    assertEquals(Result.FAIL, test.apply(item, depth)); // used parameter directly
     verify(expr, times(2)).apply(item, depth);
     verifyNoMoreInteractions(expr);
   }
@@ -144,8 +144,8 @@ public class TestFilterExpression {
   @Parameters(method = "valueSetForTwoBooleans")
   public void isAction(boolean b1, boolean b2) {
     when(expr.isAction()).thenReturn(b1).thenReturn(b2);
-    assertEquals(b1, test.isAction());
-    assertEquals(b2, test.isAction());
+    assertEquals(b1, test.isAction()); // changed assert // used parameter directly
+    assertEquals(b2, test.isAction()); // changed asserts // used parameter directly
     verify(expr, times(2)).isAction();
     verifyNoMoreInteractions(expr);
   }
@@ -155,8 +155,8 @@ public class TestFilterExpression {
   @Parameters(method = "valueSetForTwoBooleans")
   public void isOperator(boolean b1, boolean b2) {
     when(expr.isAction()).thenReturn(b1).thenReturn(b2);
-    assertEquals(b1, test.isAction());
-    assertEquals(b2, test.isAction());
+    assertEquals(b1, test.isAction()); // changed asserts // used parameter directly
+    assertEquals(b2, test.isAction()); // changed asserts // used parameter directly
     verify(expr, times(2)).isAction();
     verifyNoMoreInteractions(expr);
   }

@@ -65,7 +65,7 @@ public class TestKeyProvider {
   @Test
   @Parameters(method = "valueSetForNameAndVersion")
   public void testBuildVersionName(final String name, final Integer version) throws Exception {
-    assertEquals(name + "@" + version, KeyProvider.buildVersionName(name, version));
+    assertEquals(name + "@" + version, KeyProvider.buildVersionName(name, version)); // formula
   }
 
   private Object[] valueSetForValidAndInvalidValues() {
@@ -83,7 +83,7 @@ public class TestKeyProvider {
   @Test
   @Parameters(method = "valueSetForValidAndInvalidValues")
   public void testParseVersionName(String validVersionname, String invalidVersionname) throws Exception {
-    assertEquals(validVersionname.substring(0, validVersionname.lastIndexOf('@')), KeyProvider.getBaseName(validVersionname));
+    assertEquals(validVersionname.substring(0, validVersionname.lastIndexOf('@')), KeyProvider.getBaseName(validVersionname)); // formula
     try {
       KeyProvider.getBaseName(invalidVersionname);
       assertTrue("should have thrown", false);
@@ -107,8 +107,8 @@ public class TestKeyProvider {
   @Parameters(method = "valueSetForKeyMaterial")
   public void testKeyMaterial(byte[] material, final String name, final String version) throws Exception {
     KeyProvider.KeyVersion obj = new KeyProvider.KeyVersion(name, name + "@" + version, material);
-    assertEquals(name + "@" + version, obj.getVersionName());
-    assertArrayEquals(material, obj.getMaterial());
+    assertEquals(name + "@" + version, obj.getVersionName()); // formula
+    assertArrayEquals(material, obj.getMaterial()); // used parameter directly
   }
 
   @Test

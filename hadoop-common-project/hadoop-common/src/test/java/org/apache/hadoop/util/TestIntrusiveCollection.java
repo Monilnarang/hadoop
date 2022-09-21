@@ -137,12 +137,12 @@ public class TestIntrusiveCollection extends HadoopTestBase {
     }
     for (int i = 0; i < numberOfElementsToAddAndRemove; i++) {
         assertTrue("Collection should contain added element",
-            intrusiveCollection.contains(elements[i]));
+            intrusiveCollection.contains(elements[i])); // some manipulation of parameter
     }
     for (int i = 0; i < numberOfElementsToAddAndRemove; i++) {
         intrusiveCollection.remove(elements[i]);
         assertFalse("Collection should not contain removed element",
-            intrusiveCollection.contains(elements[i]));
+            intrusiveCollection.contains(elements[i])); // some manipulation of parameter
     }
     assertTrue("Collection should be empty", intrusiveCollection.isEmpty());
   }
@@ -194,7 +194,7 @@ public class TestIntrusiveCollection extends HadoopTestBase {
     Iterator<SimpleElement> iterator = intrusiveCollection.iterator();
 
     for (int i = 0; i < numberOfElements; i++) {
-        assertEquals((i + 1) + " element returned is incorrect", elements[i], iterator.next());
+        assertEquals((i + 1) + " element returned is incorrect", elements[i], iterator.next()); // some manipulation of parameter
     }
     assertFalse("Iterator should not have next element", iterator.hasNext());
   }

@@ -58,9 +58,9 @@ public class TestLists {
     for (int i = 0; i < stringArr.length; i++) {
         list.add(stringArr[i]);
     }
-    Assert.assertEquals(stringArr.length, list.size());
+    Assert.assertEquals(stringArr.length, list.size()); // some manipulation of parameter
     for (int i = 0; i < stringArr.length; i++) {
-        Assert.assertEquals(stringArr[i], list.get(i));
+        Assert.assertEquals(stringArr[i], list.get(i)); // some manipulation of parameter
     }
   }
 
@@ -71,9 +71,9 @@ public class TestLists {
     for (int i = 0; i < stringArr.length; i++) {
         list.add(stringArr[i]);
     }
-    Assert.assertEquals(stringArr.length, list.size());
+    Assert.assertEquals(stringArr.length, list.size()); // some manipulation of parameter
     for (int i = 0; i < stringArr.length; i++) {
-        Assert.assertEquals(stringArr[i], list.get(i));
+        Assert.assertEquals(stringArr[i], list.get(i)); // some manipulation of parameter
     }
   }
 
@@ -97,14 +97,14 @@ public class TestLists {
     for (int i = 0; i < nMore; i++) {
         list.add("record" + (i + elements.length + 1));
     }
-    Assert.assertEquals(elements.length + Math.max(nMore, 0), list.size());
+    Assert.assertEquals(elements.length + Math.max(nMore, 0), list.size()); // formula // some manipulation of parameter
     int i = 0;
     for (String s : elements) {
-        Assert.assertEquals(s, list.get(i++));
+        Assert.assertEquals(s, list.get(i++)); // some manipulation of parameter
     }
     int j = 0;
     while (i < nMore) {
-        Assert.assertEquals("record" + (j + elements.length + 1), list.get(i));
+        Assert.assertEquals("record" + (j + elements.length + 1), list.get(i)); // formula // some manipulation of parameter
         j++;
         i++;
     }
@@ -121,7 +121,7 @@ public class TestLists {
     for (int i = 0; i < nMore; i++) {
         list.add("record" + (i + elements.length + 1));
     }
-    Assert.assertEquals(set.size() + Math.max(nMore, 0), list.size());
+    Assert.assertEquals(set.size() + Math.max(nMore, 0), list.size()); // formula // some manipulation of parameter
   }
 
   @Test
@@ -135,7 +135,7 @@ public class TestLists {
     for (int i = 0; i < nMore; i++) {
         list.add("record" + (i + elements.length + 1));
     }
-    Assert.assertEquals(set.size() + Math.max(nMore, 0), list.size());
+    Assert.assertEquals(set.size() + Math.max(nMore, 0), list.size()); // formula // some manipulation of parameter
   }
 
   private Object[] valueSetToProvideStringArrayAndPageSize() {
@@ -159,13 +159,13 @@ public class TestLists {
             partition(list, pageSize);
     Assertions.assertThat(res)
             .describedAs("Number of partitions post partition")
-            .hasSize((int) Math.ceil(stringList.length/(pageSize*1.0)));
+            .hasSize((int) Math.ceil(stringList.length/(pageSize*1.0))); // formula
     Assertions.assertThat(res.get(0))
             .describedAs("Number of elements in first partition")
-            .hasSize(Math.min(stringList.length, pageSize));
+            .hasSize(Math.min(stringList.length, pageSize)); // formula
     Assertions.assertThat(res.get((int) Math.ceil(stringList.length/(pageSize*1.0))-1))
             .describedAs("Number of elements in last partition")
-            .hasSize(stringList.length%pageSize==0 ? Math.min(stringList.length, pageSize): stringList.length%pageSize);
+            .hasSize(stringList.length%pageSize==0 ? Math.min(stringList.length, pageSize): stringList.length%pageSize); // formula
   }
 
   private Object[] valueSetToProvideTwoArrays() {
@@ -191,17 +191,17 @@ public class TestLists {
     for(int i=0;i<list1.length;i++) {
         list.add(list1[i]);
     }
-    Assert.assertEquals(list1.length, list.size());
+    Assert.assertEquals(list1.length, list.size()); // some manipulation of parameter
     for(int i=0;i<list1.length;i++) {
-        Assert.assertEquals(list1[i], list.get(i));
+        Assert.assertEquals(list1[i], list.get(i)); // some manipulation of parameter
     }
     list = Lists.newArrayListWithCapacity(list2.length);
     for(int i=0;i<list2.length;i++) {
             list.add(list2[i]);
     }
-    Assert.assertEquals(list2.length, list.size());
+    Assert.assertEquals(list2.length, list.size()); // some manipulation of parameter
     for(int i=0;i<list2.length;i++) {
-        Assert.assertEquals(list2[i], list.get(i));
+        Assert.assertEquals(list2[i], list.get(i)); // some manipulation of parameter
     }
   }
 

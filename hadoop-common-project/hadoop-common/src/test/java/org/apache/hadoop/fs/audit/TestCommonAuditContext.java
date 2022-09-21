@@ -122,13 +122,13 @@ public class TestCommonAuditContext extends AbstractHadoopTestBase {
     final AtomicBoolean ab = new AtomicBoolean(boolInit);
     context.put(key, () ->
         Boolean.toString(ab.get()));
-    assertContextValue(key)
+    assertContextValue(key) // used parameter directly
         .isEqualTo(boolInit.toString());
     // update the reference and the next get call will
     // pick up the new value.
     ab.set(boolToSet);
-    assertContextValue(key)
-        .isEqualTo(boolToSet.toString());
+    assertContextValue(key) // used parameter directly
+        .isEqualTo(boolToSet.toString()); // some manipulation of parameter
   }
 
   private String getContextValue(final String key) {

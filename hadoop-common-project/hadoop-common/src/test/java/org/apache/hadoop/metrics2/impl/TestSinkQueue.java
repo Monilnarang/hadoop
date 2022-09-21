@@ -79,18 +79,18 @@ public class TestSinkQueue {
   @Test public void testCommon() throws Exception {
     final SinkQueue<Integer> q = new SinkQueue<Integer>(2);
     q.enqueue(enqueueValue1);
-    assertEquals("queue front", enqueueValue1, (int) q.front());
-    assertEquals("queue back", enqueueValue1, (int) q.back());
-    assertEquals("element", enqueueValue1, (int) q.dequeue());
+    assertEquals("queue front", enqueueValue1, (int) q.front()); // used parameter directly
+    assertEquals("queue back", enqueueValue1, (int) q.back()); // used parameter directly
+    assertEquals("element", enqueueValue1, (int) q.dequeue()); // used parameter directly
 
-    assertTrue("should enqueue", q.enqueue(enqueueValue2));
+    assertTrue("should enqueue", q.enqueue(enqueueValue2)); // used parameter directly
     q.consume(new Consumer<Integer>() {
       @Override public void consume(Integer e) {
         assertEquals("element", enqueueValue2, (int) e);
       }
     });
-    assertTrue("should enqueue", q.enqueue(enqueueValue3));     //can be removed
-    assertEquals("element", enqueueValue3, (int) q.dequeue());    //can be removed
+    assertTrue("should enqueue", q.enqueue(enqueueValue3));     //can be removed // used parameter directly
+    assertEquals("element", enqueueValue3, (int) q.dequeue());    //can be removed // used parameter directly
     assertEquals("queue size", 0, q.size());
     assertEquals("queue front", null, q.front());
     assertEquals("queue back", null, q.back());
@@ -114,10 +114,10 @@ public class TestSinkQueue {
     Thread t = new Thread() {
       @Override public void run() {
         try {
-          assertEquals("element", enqueueValue1, (int) q.dequeue());
+          assertEquals("element", enqueueValue1, (int) q.dequeue()); // used parameter directly
           q.consume(new Consumer<Integer>() {
             @Override public void consume(Integer e) {
-              assertEquals("element", enqueueValue2, (int) e);
+              assertEquals("element", enqueueValue2, (int) e); // used parameter directly
               trigger.run();
             }
           });
@@ -147,13 +147,13 @@ public class TestSinkQueue {
     final SinkQueue<Integer> q = new SinkQueue<Integer>(1);
     q.enqueue(enqueueValue1);
 
-    assertTrue("should drop", !q.enqueue(enqueueValue2));
-    assertEquals("element", enqueueValue1, (int) q.dequeue());
+    assertTrue("should drop", !q.enqueue(enqueueValue2)); // used parameter directly
+    assertEquals("element", enqueueValue1, (int) q.dequeue()); // used parameter directly
 
     q.enqueue(enqueueValue3);
     q.consume(new Consumer<Integer>() {
       @Override public void consume(Integer e) {
-        assertEquals("element", enqueueValue3, (int) e);
+        assertEquals("element", enqueueValue3, (int) e); // used parameter directly
       }
     });
     assertEquals("queue size", 0, q.size());
@@ -169,7 +169,7 @@ public class TestSinkQueue {
     final SinkQueue<Integer> q = new SinkQueue<Integer>(capacity);
     assertTrue("should enqueue", q.enqueue(0));
     for (int i = 1; i < capacity; ++i) {
-      assertTrue("should enqueue", q.enqueue(i));
+      assertTrue("should enqueue", q.enqueue(i)); // some manipulation of parameter
     }
     assertTrue("should not enqueue", !q.enqueue(capacity));
 
@@ -207,7 +207,7 @@ public class TestSinkQueue {
     }
     // The queue should be in consistent state after exception
     assertEquals("queue size", 1, q.size());
-    assertEquals("element", enqueueValue1, (int) q.dequeue());
+    assertEquals("element", enqueueValue1, (int) q.dequeue()); // used parameter directly
   }
 
   /**
@@ -232,11 +232,11 @@ public class TestSinkQueue {
   // Class #1 PUT #7
   @Test public void testHangingConsumer() throws Exception {
     SinkQueue<Integer> q = newSleepingConsumerQueue(2, enqueueValue1, enqueueValue2);
-    assertEquals("queue back", enqueueValue2, (int) q.back());
-    assertTrue("should drop", !q.enqueue(enqueueValue3)); // should not block
+    assertEquals("queue back", enqueueValue2, (int) q.back()); // used parameter directly
+    assertTrue("should drop", !q.enqueue(enqueueValue3)); // should not block // used parameter directly
     assertEquals("queue size", 2, q.size());
-    assertEquals("queue head", enqueueValue1, (int) q.front());
-    assertEquals("queue back", enqueueValue2, (int) q.back());
+    assertEquals("queue head", enqueueValue1, (int) q.front()); // used parameter directly
+    assertEquals("queue back", enqueueValue2, (int) q.back()); // used parameter directly
   }
 
   /**
@@ -246,9 +246,9 @@ public class TestSinkQueue {
   // Class #1 PUT #8
   @Test public void testConcurrentConsumers() throws Exception {
     final SinkQueue<Integer> q = newSleepingConsumerQueue(2, enqueueValue1);
-    assertTrue("should enqueue", q.enqueue(enqueueValue2));
-    assertEquals("queue back", enqueueValue2, (int) q.back());
-    assertTrue("should drop", !q.enqueue(enqueueValue3)); // should not block
+    assertTrue("should enqueue", q.enqueue(enqueueValue2)); // used parameter directly
+    assertEquals("queue back", enqueueValue2, (int) q.back()); // used parameter directly
+    assertTrue("should drop", !q.enqueue(enqueueValue3)); // should not block // used parameter directly
     shouldThrowCME(new Fun() {
       @Override public void run() {
         q.clear();
@@ -271,8 +271,8 @@ public class TestSinkQueue {
     });
     // The queue should still be in consistent state after all the exceptions
     assertEquals("queue size", 2, q.size());
-    assertEquals("queue front", enqueueValue1, (int) q.front());
-    assertEquals("queue back", enqueueValue2, (int) q.back());
+    assertEquals("queue front", enqueueValue1, (int) q.front()); // used parameter directly
+    assertEquals("queue back", enqueueValue2, (int) q.back()); // used parameter directly
   }
 
   private void shouldThrowCME(Fun callback) throws Exception {

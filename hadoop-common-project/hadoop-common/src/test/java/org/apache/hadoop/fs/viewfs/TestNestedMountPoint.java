@@ -208,12 +208,12 @@ public class TestNestedMountPoint {
         boolean resolveLastComponent, URI expectedURI, InodeTree.ResultKind resultKind) throws Exception {
 
     InodeTree.ResolveResult resolveResult = inodeTree.resolve(path, resolveLastComponent);
-    Assert.assertEquals(resultKind, resolveResult.kind);
-    Assert.assertEquals(resolvedPath, resolveResult.resolvedPath);
-    Assert.assertEquals(new Path(remainingPath), resolveResult.remainingPath);
+    Assert.assertEquals(resultKind, resolveResult.kind); // used parameter directly
+    Assert.assertEquals(resolvedPath, resolveResult.resolvedPath); // used parameter directly
+    Assert.assertEquals(new Path(remainingPath), resolveResult.remainingPath); // used parameter directly
     if (resultKind == InodeTree.ResultKind.EXTERNAL_DIR) {
         Assert.assertTrue(resolveResult.targetFileSystem instanceof TestNestMountPointFileSystem);
-        Assert.assertEquals(expectedURI, ((TestNestMountPointFileSystem) resolveResult.targetFileSystem).getUri());
+        Assert.assertEquals(expectedURI, ((TestNestMountPointFileSystem) resolveResult.targetFileSystem).getUri()); // used parameter directly
         if (expectedURI == LINKFALLBACK_TARGET) {
             Assert.assertFalse(resolveResult.isLastInternalDirLink());
         } else {

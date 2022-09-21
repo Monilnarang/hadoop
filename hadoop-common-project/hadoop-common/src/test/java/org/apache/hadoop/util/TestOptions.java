@@ -52,7 +52,7 @@ public class TestOptions {
     assertArrayEquals("append failure",
                       ArrayUtils.addAll(newOpts, oldOpts),
                       Options.prependOptions(oldOpts,
-                                             newOpts));
+                                             newOpts)); // formula // some manipulation of parameter
   }
 
   private Object[] valueSetForTestFind() {
@@ -78,13 +78,13 @@ public class TestOptions {
   public void testFind(Object[] objects, int intInd, int stringInd, int boolInd) throws Exception {
      Assume.assumeTrue(Math.max(Math.max(intInd, stringInd), boolInd) < objects.length);
      if(intInd >= 0) {
-        assertEquals(objects[intInd], Options.getOption(Integer.class, objects).intValue());
+        assertEquals(objects[intInd], Options.getOption(Integer.class, objects).intValue()); // some manipulation of parameter
      }
      if(stringInd >= 0) {
-        assertEquals(objects[stringInd], Options.getOption(String.class, objects));
+        assertEquals(objects[stringInd], Options.getOption(String.class, objects)); // some manipulation of parameter
      }
      if(boolInd >= 0) {
-        assertEquals(objects[boolInd], Options.getOption(Boolean.class, objects).booleanValue());
+        assertEquals(objects[boolInd], Options.getOption(Boolean.class, objects).booleanValue()); // some manipulation of parameter
      }
   }
 }

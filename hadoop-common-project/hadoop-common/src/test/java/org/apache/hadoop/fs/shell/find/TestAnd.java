@@ -79,7 +79,7 @@ public class TestAnd {
     children.add(first);
     and.addChildren(children);
 
-    assertEquals(expectedResult, and.apply(pathData, -1));
+    assertEquals(expectedResult, and.apply(pathData, -1)); // used parameter directly
     verify(first).apply(pathData, -1);
     if (firstResult == Result.PASS || firstResult == Result.STOP) {
         verify(second).apply(pathData, -1);
