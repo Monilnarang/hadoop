@@ -19,16 +19,21 @@ package org.apache.hadoop.util;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.junit.Assert;
 import org.apache.hadoop.util.FindClass;
 import org.apache.hadoop.util.ToolRunner;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Test the find class logic
  */
+
+@RunWith(JUnitParamsRunner.class)
 public class TestFindClass extends Assert {
   private static final Logger LOG =
       LoggerFactory.getLogger(TestFindClass.class);
@@ -46,100 +51,56 @@ public class TestFindClass extends Assert {
     assertEquals(expected, result);
   }
 
-  @Test
-  public void testUsage() throws Throwable {
-    run(FindClass.E_USAGE, "org.apache.hadoop.util.TestFindClass");
+  private Object[] valueSetForRun() {
+    return new Object[] {
+                new Object[] {FindClass.E_USAGE, "org.apache.hadoop.util.TestFindClass"}, // testUsage
+                new Object[] {FindClass.SUCCESS,    // testFindsResource
+                                      FindClass.A_RESOURCE, "org/apache/hadoop/util/TestFindClass.class"},
+                new Object[] {FindClass.E_NOT_FOUND, // testFailsNoSuchResource
+                                      FindClass.A_RESOURCE,
+                                      "org/apache/hadoop/util/ThereIsNoSuchClass.class"},
+                new Object[] {FindClass.SUCCESS, // testLoadFindsSelf
+                                      FindClass.A_LOAD, "org.apache.hadoop.util.TestFindClass"},
+                new Object[] {FindClass.E_NOT_FOUND, // testLoadFailsNoSuchClass
+                                      FindClass.A_LOAD, "org.apache.hadoop.util.ThereIsNoSuchClass"},
+                new Object[] {FindClass.E_LOAD_FAILED, // testLoadWithErrorInStaticInit
+                                      FindClass.A_LOAD,
+                                      "org.apache.hadoop.util.TestFindClass$FailInStaticInit"},
+                new Object[] {FindClass.SUCCESS, // testCreateHandlesBadToString
+                                      FindClass.A_CREATE,
+                                      "org.apache.hadoop.util.TestFindClass$BadToStringClass"},
+                new Object[] {FindClass.SUCCESS, // testCreatesClass
+                                      FindClass.A_CREATE, "org.apache.hadoop.util.TestFindClass"},
+                new Object[] {FindClass.E_LOAD_FAILED, // testCreateFailsInStaticInit
+                                      FindClass.A_CREATE,
+                                      "org.apache.hadoop.util.TestFindClass$FailInStaticInit"},
+                new Object[] {FindClass.E_CREATE_FAILED, // testCreateFailsInConstructor
+                                      FindClass.A_CREATE,
+                                      "org.apache.hadoop.util.TestFindClass$FailInConstructor"},
+                new Object[] {FindClass.E_CREATE_FAILED, // testCreateFailsNoEmptyConstructor
+                                      FindClass.A_CREATE,
+                                      "org.apache.hadoop.util.TestFindClass$NoEmptyConstructor"},
+                new Object[] {FindClass.SUCCESS, // testLoadPrivateClass
+                                      FindClass.A_LOAD, "org.apache.hadoop.util.TestFindClass$PrivateClass"},
+                new Object[] {FindClass.E_CREATE_FAILED, // testCreateFailsPrivateClass
+                                      FindClass.A_CREATE,
+                                      "org.apache.hadoop.util.TestFindClass$PrivateClass"},
+                new Object[] {FindClass.E_CREATE_FAILED, // testCreateFailsInPrivateConstructor
+                                      FindClass.A_CREATE,
+                                      "org.apache.hadoop.util.TestFindClass$PrivateConstructor"},
+                new Object[] {FindClass.SUCCESS, // testLoadFindsLog4J
+                                     FindClass.A_RESOURCE, LOG4J_PROPERTIES},
+                new Object[] {FindClass.E_NOT_FOUND, // testPrintFailsNoSuchClass
+                                     FindClass.A_PRINTRESOURCE, "org.apache.hadoop.util.ThereIsNoSuchClass"},
+                new Object[] {FindClass.SUCCESS, // testPrintClass
+                                     FindClass.A_PRINTRESOURCE, LOG4J_PROPERTIES},
+    };
   }
 
   @Test
-  public void testFindsResource() throws Throwable {
-    run(FindClass.SUCCESS,
-        FindClass.A_RESOURCE, "org/apache/hadoop/util/TestFindClass.class");
-  }
-
-  @Test
-  public void testFailsNoSuchResource() throws Throwable {
-    run(FindClass.E_NOT_FOUND,
-        FindClass.A_RESOURCE,
-        "org/apache/hadoop/util/ThereIsNoSuchClass.class");
-  }
-
-  @Test
-  public void testLoadFindsSelf() throws Throwable {
-    run(FindClass.SUCCESS,
-        FindClass.A_LOAD, "org.apache.hadoop.util.TestFindClass");
-  }
-
-  @Test
-  public void testLoadFailsNoSuchClass() throws Throwable {
-    run(FindClass.E_NOT_FOUND,
-        FindClass.A_LOAD, "org.apache.hadoop.util.ThereIsNoSuchClass");
-  }
-
-  @Test
-  public void testLoadWithErrorInStaticInit() throws Throwable {
-    run(FindClass.E_LOAD_FAILED,
-        FindClass.A_LOAD,
-        "org.apache.hadoop.util.TestFindClass$FailInStaticInit");
-  }
-
-  @Test
-  public void testCreateHandlesBadToString() throws Throwable {
-    run(FindClass.SUCCESS,
-        FindClass.A_CREATE,
-        "org.apache.hadoop.util.TestFindClass$BadToStringClass");
-  }
-
-  @Test
-  public void testCreatesClass() throws Throwable {
-    run(FindClass.SUCCESS,
-        FindClass.A_CREATE, "org.apache.hadoop.util.TestFindClass");
-  }
-
-  @Test
-  public void testCreateFailsInStaticInit() throws Throwable {
-    run(FindClass.E_LOAD_FAILED,
-        FindClass.A_CREATE,
-        "org.apache.hadoop.util.TestFindClass$FailInStaticInit");
-  }
-
-  @Test
-  public void testCreateFailsInConstructor() throws Throwable {
-    run(FindClass.E_CREATE_FAILED,
-        FindClass.A_CREATE,
-        "org.apache.hadoop.util.TestFindClass$FailInConstructor");
-  }
-
-  @Test
-  public void testCreateFailsNoEmptyConstructor() throws Throwable {
-    run(FindClass.E_CREATE_FAILED,
-        FindClass.A_CREATE,
-        "org.apache.hadoop.util.TestFindClass$NoEmptyConstructor");
-  }
-
-  @Test
-  public void testLoadPrivateClass() throws Throwable {
-    run(FindClass.SUCCESS,
-        FindClass.A_LOAD, "org.apache.hadoop.util.TestFindClass$PrivateClass");
-  }
-
-  @Test
-  public void testCreateFailsPrivateClass() throws Throwable {
-    run(FindClass.E_CREATE_FAILED,
-        FindClass.A_CREATE,
-        "org.apache.hadoop.util.TestFindClass$PrivateClass");
-  }
-
-  @Test
-  public void testCreateFailsInPrivateConstructor() throws Throwable {
-    run(FindClass.E_CREATE_FAILED,
-        FindClass.A_CREATE,
-        "org.apache.hadoop.util.TestFindClass$PrivateConstructor");
-  }
-
-  @Test
-  public void testLoadFindsLog4J() throws Throwable {
-    run(FindClass.SUCCESS, FindClass.A_RESOURCE, LOG4J_PROPERTIES);
+  @Parameters(method = "valueSetForRun")
+  public void testRun(int expected, String... args) throws Throwable {
+    run(expected, args);
   }
 
   @SuppressWarnings("UseOfSystemOutOrSystemErr")

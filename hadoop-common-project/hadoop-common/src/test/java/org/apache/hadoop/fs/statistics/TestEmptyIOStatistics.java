@@ -18,10 +18,13 @@
 
 package org.apache.hadoop.fs.statistics;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.junit.Test;
 
 import org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding;
 import org.apache.hadoop.test.AbstractHadoopTestBase;
+import org.junit.runner.RunWith;
 
 import static org.apache.hadoop.fs.statistics.IOStatisticAssertions.assertStatisticCounterIsTracked;
 import static org.apache.hadoop.fs.statistics.IOStatisticAssertions.assertStatisticCounterIsUntracked;
@@ -34,30 +37,56 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Test handling of the empty IO statistics class.
  */
+@RunWith(JUnitParamsRunner.class)
 public class TestEmptyIOStatistics extends AbstractHadoopTestBase {
 
   private final IOStatistics empty = emptyStatistics();
 
-  @Test
-  public void testUnknownStatistic() throws Throwable {
-    assertStatisticCounterIsUntracked(empty, "anything");
+  private Object[] testParametersForKey() {
+    return new Object[] {
+        new Object[] {"anything"},
+        new Object[] {"12345sas@##%^"},
+        new Object[] {"1234"},
+        new Object[] {"      "},
+        new Object[] {""},
+        new Object[] {" .?// | \\  "}
+        };
   }
 
   @Test
-  public void testStatisticsTrackedAssertion() throws Throwable {
+  @Parameters(method = "testParametersForKey")
+  public void testUnknownStatistic(String key) throws Throwable {
+    assertStatisticCounterIsUntracked(empty, key); // used parameter directly
+  }
+
+  @Test
+  @Parameters(method = "testParametersForKey")
+  public void testStatisticsTrackedAssertion(String key) throws Throwable {
     // expect an exception to be raised when an assertion
     // is made that an unknown statistic is tracked,.
     assertThatThrownBy(() ->
-        assertStatisticCounterIsTracked(empty, "anything"))
+        assertStatisticCounterIsTracked(empty, key)) // used parameter directly
         .isInstanceOf(AssertionError.class);
   }
 
+  private Object[] testParametersForKeyAndValue() {
+    return new Object[] {
+        new Object[] {"anything", 0},
+        new Object[] {"12345sas@##%^", -1},
+        new Object[] {"1234", 100},
+        new Object[] {"      ", Long.MIN_VALUE},
+        new Object[] {"", Long.MAX_VALUE},
+        new Object[] {" .?// | \\  ", 999999999}
+    };
+  }
+
   @Test
-  public void testStatisticsValueAssertion() throws Throwable {
+  @Parameters(method = "testParametersForKeyAndValue")
+  public void testStatisticsValueAssertion(String key, long value) throws Throwable {
     // expect an exception to be raised when
     // an assertion is made about the value of an unknown statistics
     assertThatThrownBy(() ->
-        verifyStatisticCounterValue(empty, "anything", 0))
+        verifyStatisticCounterValue(empty, key, value)) // used parameter directly
         .isInstanceOf(AssertionError.class);
   }
 
@@ -86,23 +115,18 @@ public class TestEmptyIOStatistics extends AbstractHadoopTestBase {
         .isSameAs(empty);
   }
 
-  @Test
-  public void testStringifyNullSource() throws Throwable {
-    assertThat(IOStatisticsLogging.ioStatisticsSourceToString(null))
-        .isEmpty();
+  private Object[] testParametersForStringifyNulls() {
+    return new Object[] {
+        new Object[] {IOStatisticsLogging.ioStatisticsSourceToString(null)},
+        new Object[] {IOStatisticsLogging.ioStatisticsSourceToString(IOStatisticsBinding.wrap(null))},
+        new Object[] {ioStatisticsToString(null)},
+    };
   }
 
   @Test
-  public void testStringifyNullStats() throws Throwable {
-    assertThat(
-        IOStatisticsLogging.ioStatisticsSourceToString(
-            IOStatisticsBinding.wrap(null)))
-        .isEmpty();
-  }
-
-  @Test
-  public void testStringificationNull() throws Throwable {
-    assertThat(ioStatisticsToString(null))
+  @Parameters(method = "testParametersForStringifyNulls")
+  public void testStringifyNulls(String str) throws Throwable {
+    assertThat(str) // used parameter directly
         .describedAs("Null statistics should stringify to \"\"")
         .isEmpty();
   }

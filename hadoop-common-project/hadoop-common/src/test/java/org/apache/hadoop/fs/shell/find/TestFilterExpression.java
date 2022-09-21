@@ -24,13 +24,18 @@ import java.io.IOException;
 import java.util.Deque;
 import java.util.concurrent.TimeUnit;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.apache.hadoop.fs.shell.PathData;
 
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.Timeout;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@RunWith(JUnitParamsRunner.class)
 public class TestFilterExpression {
   private Expression expr;
   private FilterExpression test;
@@ -60,14 +65,28 @@ public class TestFilterExpression {
     verifyNoMoreInteractions(expr);
   }
 
+  private Object[] valueSetForInteger() {
+    return new Object[] {
+                new Object[] {-1},
+                new Object[] {1},
+                new Object[] {0},
+                new Object[] {-1},
+                new Object[] {Integer.MAX_VALUE},
+                new Object[] {Integer.MIN_VALUE},
+                new Object[] {12345},
+    };
+  }
+
   // test the apply method is called and the result returned
   @Test
-  public void apply() throws IOException {
+  @Parameters(method = "valueSetForInteger")
+  public void apply(int depth) throws IOException {
+    Assume.assumeTrue(depth == -1);
     PathData item = mock(PathData.class);
-    when(expr.apply(item, -1)).thenReturn(Result.PASS).thenReturn(Result.FAIL);
-    assertEquals(Result.PASS, test.apply(item, -1));
-    assertEquals(Result.FAIL, test.apply(item, -1));
-    verify(expr, times(2)).apply(item, -1);
+    when(expr.apply(item, depth)).thenReturn(Result.PASS).thenReturn(Result.FAIL);
+    assertEquals(Result.PASS, test.apply(item, depth)); // used parameter directly
+    assertEquals(Result.FAIL, test.apply(item, depth)); // used parameter directly
+    verify(expr, times(2)).apply(item, depth);
     verifyNoMoreInteractions(expr);
   }
 
@@ -79,10 +98,22 @@ public class TestFilterExpression {
     verifyNoMoreInteractions(expr);
   }
 
+  private Object[] valueSetForStringArray() {
+    return new Object[] {
+                new Object[] {new String[] { "Usage 1", "Usage 2", "Usage 3" }},
+                new Object[] {new String[] { "Help 1", "Help 2", "Help 3" }},
+                new Object[] {new String[] { "U", "U" }},
+                new Object[] {new String[] { "1", "2", "3", "4" }},
+                new Object[] {new String[] { }},
+                new Object[] {new String[] { "", "    ", "      ", "", "", "", "", "                      " }},
+                new Object[] {new String[] { "123@abc", "ABC@4567", "!@#$%^&*()__+=-{}][;':,./?><" }},
+    };
+  }
+
   // test that the getUsage method is called
   @Test
-  public void getUsage() {
-    String[] usage = new String[] { "Usage 1", "Usage 2", "Usage 3" };
+  @Parameters(method = "valueSetForStringArray")
+  public void getUsage(String[] usage) {
     when(expr.getUsage()).thenReturn(usage);
     assertArrayEquals(usage, test.getUsage());
     verify(expr).getUsage();
@@ -91,38 +122,49 @@ public class TestFilterExpression {
 
   // test that the getHelp method is called
   @Test
-  public void getHelp() {
-    String[] help = new String[] { "Help 1", "Help 2", "Help 3" };
+  @Parameters(method = "valueSetForStringArray")
+  public void getHelp(String[] help) {
     when(expr.getHelp()).thenReturn(help);
     assertArrayEquals(help, test.getHelp());
     verify(expr).getHelp();
     verifyNoMoreInteractions(expr);
   }
 
+  private Object[] valueSetForTwoBooleans() {
+    return new Object[] {
+                new Object[] {true, false},
+                new Object[] {true, true},
+                new Object[] {false, false},
+                new Object[] {false, true},
+    };
+  }
+
   // test that the isAction method is called
   @Test
-  public void isAction() {
-    when(expr.isAction()).thenReturn(true).thenReturn(false);
-    assertTrue(test.isAction());
-    assertFalse(test.isAction());
+  @Parameters(method = "valueSetForTwoBooleans")
+  public void isAction(boolean b1, boolean b2) {
+    when(expr.isAction()).thenReturn(b1).thenReturn(b2);
+    assertEquals(b1, test.isAction()); // changed assert // used parameter directly
+    assertEquals(b2, test.isAction()); // changed asserts // used parameter directly
     verify(expr, times(2)).isAction();
     verifyNoMoreInteractions(expr);
   }
 
   // test that the isOperator method is called
   @Test
-  public void isOperator() {
-    when(expr.isAction()).thenReturn(true).thenReturn(false);
-    assertTrue(test.isAction());
-    assertFalse(test.isAction());
+  @Parameters(method = "valueSetForTwoBooleans")
+  public void isOperator(boolean b1, boolean b2) {
+    when(expr.isAction()).thenReturn(b1).thenReturn(b2);
+    assertEquals(b1, test.isAction()); // changed asserts // used parameter directly
+    assertEquals(b2, test.isAction()); // changed asserts // used parameter directly
     verify(expr, times(2)).isAction();
     verifyNoMoreInteractions(expr);
   }
 
   // test that the getPrecedence method is called
   @Test
-  public void getPrecedence() {
-    int precedence = 12345;
+  @Parameters(method = "valueSetForInteger")
+  public void getPrecedence(int precedence) {
     when(expr.getPrecedence()).thenReturn(precedence);
     assertEquals(precedence, test.getPrecedence());
     verify(expr).getPrecedence();

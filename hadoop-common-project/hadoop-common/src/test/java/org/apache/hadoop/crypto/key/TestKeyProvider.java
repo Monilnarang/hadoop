@@ -17,6 +17,8 @@
  */
 package org.apache.hadoop.crypto.key;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.junit.Assert;
 import org.apache.hadoop.conf.Configuration;
 
@@ -24,6 +26,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.ProviderUtils;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.IOException;
 import java.net.URI;
@@ -42,34 +45,70 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.fail;
 
+@RunWith(JUnitParamsRunner.class)
 public class TestKeyProvider {
 
   private static final String CIPHER = "AES";
 
-  @Test
-  public void testBuildVersionName() throws Exception {
-    assertEquals("/a/b@3", KeyProvider.buildVersionName("/a/b", 3));
-    assertEquals("/aaa@12", KeyProvider.buildVersionName("/aaa", 12));
+  private Object[] valueSetForNameAndVersion() {
+    return new Object[] {
+                new Object[] {"/a/b", 3},
+                new Object[] { "/aaa", 12 },
+                new Object[] { "", 0 },
+                new Object[] { "@#!&^^&$@", -1 },
+                new Object[] { "@@", -99999 },
+                new Object[] { "qwertyuioplkjhgfdsazxcvbnm,,./<>?;'[]}{|+_)(*&^%$#@!-=", Integer.MIN_VALUE },
+                new Object[] { null, 9999},
+    };
   }
 
   @Test
-  public void testParseVersionName() throws Exception {
-    assertEquals("/a/b", KeyProvider.getBaseName("/a/b@3"));
-    assertEquals("/aaa", KeyProvider.getBaseName("/aaa@112"));
+  @Parameters(method = "valueSetForNameAndVersion")
+  public void testBuildVersionName(final String name, final Integer version) throws Exception {
+    assertEquals(name + "@" + version, KeyProvider.buildVersionName(name, version)); // formula
+  }
+
+  private Object[] valueSetForValidAndInvalidValues() {
+    return new Object[] {
+                new Object[] {"/a/b@3", "/a/b"},
+                new Object[] { "/aaa@12", null},
+                new Object[] { "@", "" },
+                new Object[] { "@#!&^^&$@", -1 },
+                new Object[] { "@@", -99999 },
+                new Object[] { "qwertyuioplkjhgfdsazxcvbnm,,./<>?;'[]}{|+_)(*&^%$#@!-=", Integer.MIN_VALUE },
+                new Object[] { "123456789@0987654321", "1234567890987654321"},
+    };
+  }
+
+  @Test
+  @Parameters(method = "valueSetForValidAndInvalidValues")
+  public void testParseVersionName(String validVersionname, String invalidVersionname) throws Exception {
+    assertEquals(validVersionname.substring(0, validVersionname.lastIndexOf('@')), KeyProvider.getBaseName(validVersionname)); // formula
     try {
-      KeyProvider.getBaseName("no-slashes");
+      KeyProvider.getBaseName(invalidVersionname);
       assertTrue("should have thrown", false);
     } catch (IOException e) {
       assertTrue(true);
     }
   }
 
+  private Object[] valueSetForKeyMaterial() {
+    return new Object[] {
+                new Object[] {new byte[]{1,2,3,4}, "key1", "1"},
+                new Object[] {new byte[]{'a','b','c','d'}, "key@@@@", "1123123"},
+                new Object[] {new byte[]{1,'a',3,'4',' ',' '}, "!@#$%^&*()", "asfjkbs"},
+                new Object[] {new byte[]{}, "", ""},
+                new Object[] {new byte[]{'@','*','!','#','$','%','^','&','@','(',')'}, ":';<>?/.,[]}{|", "!@#$%^)("},
+
+    };
+  }
+
   @Test
-  public void testKeyMaterial() throws Exception {
-    byte[] key1 = new byte[]{1,2,3,4};
-    KeyProvider.KeyVersion obj = new KeyProvider.KeyVersion("key1", "key1@1", key1);
-    assertEquals("key1@1", obj.getVersionName());
-    assertArrayEquals(new byte[]{1,2,3,4}, obj.getMaterial());
+  @Parameters(method = "valueSetForKeyMaterial")
+  public void testKeyMaterial(byte[] material, final String name, final String version) throws Exception {
+    KeyProvider.KeyVersion obj = new KeyProvider.KeyVersion(name, name + "@" + version, material);
+    assertEquals(name + "@" + version, obj.getVersionName()); // formula
+    assertArrayEquals(material, obj.getMaterial()); // used parameter directly
   }
 
   @Test

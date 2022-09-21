@@ -23,13 +23,18 @@ import static org.apache.hadoop.fs.shell.find.TestHelper.*;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.shell.PathData;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.Timeout;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@RunWith(JUnitParamsRunner.class)
 public class TestIname {
   private FileSystem mockFs;
   private Name.Iname name;
@@ -51,49 +56,83 @@ public class TestIname {
 
   // test a matching name (same case)
   @Test
-  public void applyMatch() throws IOException {
-    setup("name");
-    PathData item = new PathData("/directory/path/name", mockFs.getConf());
+  @Parameters({
+  "name",
+  "nameasdf",
+  "NAME",
+  "name@123",
+  "!@#$%^&*()-=+_",
+  "123123",
+  "",
+  "     ",
+  })
+  public void applyMatch(final String matchingName) throws IOException {
+    setup(matchingName);
+    PathData item = new PathData("/directory/path/" + matchingName, mockFs.getConf());
     assertEquals(Result.PASS, name.apply(item, -1));
   }
 
   // test a non-matching name
   @Test
-  public void applyNotMatch() throws IOException {
-    setup("name");
-    PathData item = new PathData("/directory/path/notname", mockFs.getConf());
-    assertEquals(Result.FAIL, name.apply(item, -1));
+  @Parameters({
+  "name,notname",
+  "nameasdf,knjsbahdsa",
+  "NAME,KJILHJKH",
+  "name@123,@123",
+  "!@#$%^&*()-=+_,)(*&^%$#@!",
+  "123123,123 123",
+  ",null",
+  "      ,    ",
+  "      ,",
+  "name,name",
+  })
+  public void applyNotMatch(String name, final String nonMatchingName) throws IOException {
+    Assume.assumeTrue(!name.equals(nonMatchingName));
+    setup(name);
+    PathData item = new PathData("/directory/path/" + nonMatchingName, mockFs.getConf());
+    assertEquals(Result.FAIL, this.name.apply(item, -1));
   }
 
   // test a matching name (different case)
   @Test
-  public void applyMixedCase() throws IOException {
-    setup("name");
-    PathData item = new PathData("/directory/path/NaMe", mockFs.getConf());
-    assertEquals(Result.PASS, name.apply(item, -1));
-  }
-
-  // test a matching glob pattern (same case)
-  @Test
-  public void applyGlob() throws IOException {
-    setup("n*e");
-    PathData item = new PathData("/directory/path/name", mockFs.getConf());
-    assertEquals(Result.PASS, name.apply(item, -1));
-  }
-
-  // test a matching glob pattern (different case)
-  @Test
-  public void applyGlobMixedCase() throws IOException {
-    setup("n*e");
-    PathData item = new PathData("/directory/path/NaMe", mockFs.getConf());
-    assertEquals(Result.PASS, name.apply(item, -1));
+  @Parameters({
+  "name,NaMe",
+  "nAmE,NaMe",
+  "NAME,namE",
+  "NAME,name",
+  "name,NAME",
+  "name@123,NAME@123",
+  " A , a    ",
+  "n*e,name", // test a matching glob pattern (same case)
+  "n*,name",
+  "*,name@123",
+  "*,",
+  "*,     ",
+  "*,   a  ",
+  "a*,   a  ",
+  "n*e,NaMe", // test a matching glob pattern (different case)
+  "n*,NAMe",
+  "*,NaME@12345",
+  "*,   AA  ",
+  "***, name@NAME ",
+  })
+  public void applyGlobAndMixedCases(String name, final String matchingName) throws IOException {
+    setup(name);
+    PathData item = new PathData("/directory/path/" + matchingName, mockFs.getConf());
+    assertEquals(Result.PASS, this.name.apply(item, -1));
   }
 
   // test a non-matching glob pattern
   @Test
-  public void applyGlobNotMatch() throws IOException {
-    setup("n*e");
-    PathData item = new PathData("/directory/path/notmatch", mockFs.getConf());
+  @Parameters({
+  "n*e,notmatch",
+  "*e,naM@123",
+  "***name,namename123",
+  "name**,amename",
+  })
+  public void applyGlobNotMatch(String arg, final String nonMatchName) throws IOException {
+    setup(arg);
+    PathData item = new PathData("/directory/path/" + nonMatchName, mockFs.getConf());
     assertEquals(Result.FAIL, name.apply(item, -1));
   }
 }

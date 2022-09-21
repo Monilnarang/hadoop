@@ -21,27 +21,43 @@ package org.apache.hadoop.io.serializer.avro;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.serializer.SerializationFactory;
 import org.apache.hadoop.io.serializer.SerializationTestUtil;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@RunWith(JUnitParamsRunner.class)
 public class TestAvroSerialization {
 
   private static final Configuration conf = new Configuration();
 
+  private Object[] valueSetsForInteger() {
+    return new Object[] {
+                new Object[] {5},
+                new Object[] {0},
+                new Object[] {-1},
+                new Object[] {Integer.MIN_VALUE},
+                new Object[] {Integer.MAX_VALUE},
+    };
+  }
+
   @Test
-  public void testSpecific() throws Exception {
+  @Parameters(method = "valueSetsForInteger")
+  public void testSpecific(int value) throws Exception {
     AvroRecord before = new AvroRecord();
-    before.intField = 5;
+    before.intField = value;
     AvroRecord after = SerializationTestUtil.testSerialization(conf, before);
     assertEquals(before, after);
   }
 
   @Test
-  public void testReflectPkg() throws Exception {
+  @Parameters(method = "valueSetsForInteger")
+  public void testReflectPkg(int value) throws Exception {
     Record before = new Record();
-    before.x = 10;
+    before.x = value;
     conf.set(AvroReflectSerialization.AVRO_REFLECT_PACKAGES, 
         before.getClass().getPackage().getName());
     Record after = SerializationTestUtil.testSerialization(conf, before);
@@ -56,9 +72,10 @@ public class TestAvroSerialization {
   }
 
   @Test
-  public void testReflectInnerClass() throws Exception {
+  @Parameters(method = "valueSetsForInteger")
+  public void testReflectInnerClass(int value) throws Exception {
     InnerRecord before = new InnerRecord();
-    before.x = 10;
+    before.x = value;
     conf.set(AvroReflectSerialization.AVRO_REFLECT_PACKAGES, 
         before.getClass().getPackage().getName());
     InnerRecord after = SerializationTestUtil.testSerialization(conf, before);
@@ -66,9 +83,10 @@ public class TestAvroSerialization {
   }
 
   @Test
-  public void testReflect() throws Exception {
+  @Parameters(method = "valueSetsForInteger")
+  public void testReflect(int value) throws Exception {
     RefSerializable before = new RefSerializable();
-    before.x = 10;
+    before.x = value;
     RefSerializable after = 
       SerializationTestUtil.testSerialization(conf, before);
     assertEquals(before, after);

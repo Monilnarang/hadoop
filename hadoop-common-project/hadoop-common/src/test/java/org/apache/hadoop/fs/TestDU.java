@@ -17,8 +17,11 @@
  */
 package org.apache.hadoop.fs;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.apache.hadoop.util.Shell;
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -32,10 +35,13 @@ import java.util.Random;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.test.GenericTestUtils;
+import org.junit.runner.RunWith;
 
 /** This test makes sure that "DU" does not get to run on each call to getUsed */
+@RunWith(JUnitParamsRunner.class)
 public class TestDU {
   final static private File DU_DIR = GenericTestUtils.getTestDir("dutmp");
+  final static int BLOCK_SIZE = 4096; // kindly update as per system (for mac -> diskutil info / | grep "Block Size" )
 
   @Before
   public void setUp() {
@@ -65,6 +71,22 @@ public class TestDU {
     file.close();
   }
 
+  private Object[] valueSetForWrittenSize() {
+    return new Object[] {
+                new Object[] {32*1024},
+                new Object[] {32*102},
+                new Object[] {32*4},
+                new Object[] {17*(-4)},
+                new Object[] {17*17},
+                new Object[] {19},
+                new Object[] {29*(-17)},
+                new Object[] {0},
+                new Object[] {1},
+                new Object[] {Integer.MAX_VALUE},
+                new Object[] {Integer.MIN_VALUE},
+    };
+  }
+
   /**
    * Verify that du returns expected used space for a file.
    * We assume here that if a file system crates a file of size
@@ -76,10 +98,11 @@ public class TestDU {
    * @throws InterruptedException
    */
   @Test
-  public void testDU() throws IOException, InterruptedException {
-    final int writtenSize = 32*1024;   // writing 32K
+  @Parameters(method = "valueSetForWrittenSize")
+  public void testDU(int writtenSize) throws IOException, InterruptedException {
     // Allow for extra 4K on-disk slack for local file systems
     // that may store additional file metadata (eg ext attrs).
+    Assume.assumeTrue(writtenSize >= 0 && writtenSize <= 32*1024*100);
     final int slack = 4*1024;
     File file = new File(DU_DIR, "data");
     createFile(file, writtenSize);
@@ -115,32 +138,67 @@ public class TestDU {
         writtenSize <= (duSize + slack));
   }
 
+  private Object[] valueSetForDfsUsedValue() {
+    return new Object[] {
+                new Object[] {-Long.MAX_VALUE},
+                new Object[] {Long.MAX_VALUE},
+                new Object[] {32*1024},
+                new Object[] {Long.MIN_VALUE * -1},
+                new Object[] {Long.MIN_VALUE},
+                new Object[] {17*(-17)},
+                new Object[] {0}
+    };
+  }
+
   @Test
-  public void testDUGetUsedWillNotReturnNegative() throws IOException {
+  @Parameters(method = "valueSetForDfsUsedValue")
+  public void testDUGetUsedWillNotReturnNegative(long dfsUsedValue) throws IOException {
     File file = new File(DU_DIR, "data");
     assertTrue(file.createNewFile());
     Configuration conf = new Configuration();
     conf.setLong(CommonConfigurationKeys.FS_DU_INTERVAL_KEY, 10000L);
     DU du = new DU(file, 10000L, 0, -1);
-    du.incDfsUsed(-Long.MAX_VALUE);
+    du.incDfsUsed(dfsUsedValue);
     long duSize = du.getUsed();
     assertTrue(String.valueOf(duSize), duSize >= 0L);
   }
 
+  private Object[] valueSetsForTestSetInitialValue() {
+    return new Object[] {
+                new Object[] {8192, 1024, 3000, 0, 5000},
+                new Object[] {8192, 1024, 3000, 2000, 4000},
+                new Object[] {8192, 1024, 3000, 1001, 4001},
+                new Object[] {4096, 1024, 3000, 1001, 4001},
+                new Object[] {16384, 1024, 3000, 1001, 4001},
+                new Object[] {8192, 10, 3000, 1001, 4001},
+                new Object[] {-8192, 10, 3000, 1001, 4001},
+                new Object[] {8192, -100, 3000, 1001, 4001},
+                new Object[] {0, 10, 3000, 1001, 4001},
+                new Object[] {8192, 0, 3000, 1001, 4001},
+                new Object[] {10, 10, 3000, 1001, 4001},
+                new Object[] {12, 10, 3000, 1001, 4001},
+    };
+  }
+
   @Test
-  public void testDUSetInitialValue() throws IOException {
+  @Parameters(method = "valueSetsForTestSetInitialValue")
+  public void testDUSetInitialValue(int fileSize, long initialUse, long interval, long jitter, long sleep)
+        throws IOException {
+    Assume.assumeTrue(interval + jitter <= sleep);
+    Assume.assumeTrue(fileSize >= 0 && initialUse >= 0);
+    Assume.assumeTrue(fileSize % BLOCK_SIZE == 0);
     File file = new File(DU_DIR, "dataX");
-    createFile(file, 8192);
-    DU du = new DU(file, 3000, 0, 1024);
+    createFile(file, fileSize);
+    DU du = new DU(file, interval, jitter, initialUse);
     du.init();
-    assertTrue("Initial usage setting not honored", du.getUsed() == 1024);
+    assertTrue("Initial usage setting not honored", du.getUsed() == initialUse); // used parameter directly
 
     // wait until the first du runs.
     try {
-      Thread.sleep(5000);
+      Thread.sleep(sleep);
     } catch (InterruptedException ie) {}
 
-    assertTrue("Usage didn't get updated", du.getUsed() == 8192);
+    assertTrue("Usage didn't get updated", du.getUsed() == fileSize); // used parameter directly
   }
 
 

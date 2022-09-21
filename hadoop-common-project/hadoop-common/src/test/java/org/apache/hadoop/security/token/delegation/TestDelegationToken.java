@@ -31,11 +31,16 @@ import java.util.List;
 import java.util.Map;
 
 import java.util.concurrent.Callable;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.apache.hadoop.fs.statistics.IOStatisticAssertions;
 import org.apache.hadoop.fs.statistics.MeanStatistic;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.hadoop.metrics2.lib.MutableRate;
+import org.apache.hadoop.security.authentication.util.KerberosName;
 import org.apache.hadoop.test.LambdaTestUtils;
 import org.junit.Assert;
 
@@ -53,17 +58,22 @@ import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.security.token.delegation.AbstractDelegationTokenSecretManager.DelegationTokenInformation;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
+import org.junit.Assume;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.*;
-
+// ToDo pending Tests :- 7 8 9 10 11 12 18 & 19
+@RunWith(JUnitParamsRunner.class)
 public class TestDelegationToken {
   private static final Logger LOG =
       LoggerFactory.getLogger(TestDelegationToken.class);
   private static final Text KIND = new Text("MY KIND");
+    private static final Pattern nameParser =
+        Pattern.compile("([^/@]+)(/([^/@]+))?(@([^/@]+))?");
 
   public static class TestDelegationTokenIdentifier 
   extends AbstractDelegationTokenIdentifier
@@ -221,16 +231,44 @@ public class TestDelegationToken {
   }
   
   @Test
-  public void testSerialization() throws Exception {
+  @Parameters({
+  "alice, bob, colin, 123, 321, 314, 12345",
+  "alice, alice, alice, 1, 1, 1, 1",
+  ", , , 1, 1, 1, 1",
+  ", , , 0, 0, 0, 0",
+  "a, b, c, -1, -1, -1, -1",
+  "asd@123, hfg&$, 4567&Adas, 0, 0, 0, 0",
+  "ace 12, hdf75, colin@32, 123, 321, 314, 12345",
+  "asd@, hfg&$, 4567&Adas, 0, 0, 0, 0",
+  "alice, bob, colin@, 123, 321, 314, 12345",
+  "alice, bob@, colin, 123, 321, 314, 12345",
+  "ace 12, hdf@75, colin32, 123, 321, 314, 12345",
+  })
+  public void testSerialization(String owner, String renewer, String realUser, int issueDate, int masterKeyId,
+     int maxDate, int sequenceNumber) throws Exception {
+    Matcher match = nameParser.matcher(owner);
+    Assume.assumeFalse(!match.matches() && owner.contains("@"));
+    match = nameParser.matcher(renewer);
+    Assume.assumeFalse(!match.matches() && renewer.contains("@"));
+    match = nameParser.matcher(realUser);
+    Assume.assumeFalse(!match.matches() && realUser.contains("@"));
+    String kerberosRule =
+        "RULE:[1:$1]/L\n" +
+        "RULE:[2:$1]/L\n" +
+        "RULE:[2:$1;$2](^.*;admin$)s/;admin$///L\n" +
+        "RULE:[2:$1;$2](^.*;guest$)s/;guest$//g/L\n" +
+        "DEFAULT";
+
+    KerberosName.setRules(kerberosRule);
     TestDelegationTokenIdentifier origToken = new 
-                        TestDelegationTokenIdentifier(new Text("alice"), 
-                                          new Text("bob"), 
-                                          new Text("colin"));
+                        TestDelegationTokenIdentifier(new Text(owner),
+                                          new Text(renewer),
+                                          new Text(realUser));
     TestDelegationTokenIdentifier newToken = new TestDelegationTokenIdentifier();
-    origToken.setIssueDate(123);
-    origToken.setMasterKeyId(321);
-    origToken.setMaxDate(314);
-    origToken.setSequenceNumber(12345);
+    origToken.setIssueDate(issueDate);
+    origToken.setMasterKeyId(masterKeyId);
+    origToken.setMaxDate(maxDate);
+    origToken.setSequenceNumber(sequenceNumber);
     
     // clone origToken into newToken
     DataInputBuffer inBuf = new DataInputBuffer();
@@ -238,15 +276,22 @@ public class TestDelegationToken {
     origToken.write(outBuf);
     inBuf.reset(outBuf.getData(), 0, outBuf.getLength());
     newToken.readFields(inBuf);
-    
-    // now test the fields
-    assertEquals("alice", newToken.getUser().getUserName());
-    assertEquals(new Text("bob"), newToken.getRenewer());
-    assertEquals("colin", newToken.getUser().getRealUser().getUserName());
-    assertEquals(123, newToken.getIssueDate());
-    assertEquals(321, newToken.getMasterKeyId());
-    assertEquals(314, newToken.getMaxDate());
-    assertEquals(12345, newToken.getSequenceNumber());
+
+    if ( (owner == null) || (owner.toString().isEmpty())) {
+         assertNull(newToken.getUser());
+    } else {
+        assertEquals(owner, newToken.getUser().getUserName()); // used parameter directly
+    }
+    assertEquals(new Text(renewer.split("@")[0]), newToken.getRenewer()); // formula
+    if ((realUser == null) || (realUser.isEmpty()) || realUser.equals(owner)) {
+        assertEquals(realUser, newToken.getRealUser().toString()); // used parameter directly
+    } else {
+        assertEquals(realUser, newToken.getUser().getRealUser().getUserName()); // used parameter directly
+    }
+    assertEquals(issueDate, newToken.getIssueDate()); // used parameter directly
+    assertEquals(masterKeyId, newToken.getMasterKeyId()); // used parameter directly
+    assertEquals(maxDate, newToken.getMaxDate()); // used parameter directly
+    assertEquals(sequenceNumber, newToken.getSequenceNumber()); // used parameter directly
     assertEquals(origToken, newToken);
   }
   
@@ -277,62 +322,133 @@ public class TestDelegationToken {
     UserGroupInformation ugi = ident.getUser();
     assertNull(ugi);
   }
-  
-  @Test
-  public void testGetUserWithOwner() {
-    TestDelegationTokenIdentifier ident =
-        new TestDelegationTokenIdentifier(new Text("owner"), null, null);
-    UserGroupInformation ugi = ident.getUser();
-    assertNull(ugi.getRealUser());
-    assertEquals("owner", ugi.getUserName());
-    assertEquals(AuthenticationMethod.TOKEN, ugi.getAuthenticationMethod());
+
+  private Object[] valueSetForUserName() {
+    return new Object[] {
+                new Object[] {"owner"},
+                new Object[] {"Owner@123"},
+                new Object[] {""},
+                new Object[] {"   "},
+                new Object[] {"owner@"},
+                new Object[] {"@$!@#$%^&*()#"},
+                new Object[] {"223423@23"},
+    };
   }
 
   @Test
-  public void testGetUserWithOwnerEqualsReal() {
-    Text owner = new Text("owner");
+  @Parameters(method = "valueSetForUserName")
+  public void testGetUserWithOwner(String owner) {
+    TestDelegationTokenIdentifier ident =
+        new TestDelegationTokenIdentifier(new Text(owner), null, null);
+    Matcher match = nameParser.matcher(owner);
+    Assume.assumeFalse(!match.matches() && owner.contains("@"));
+    UserGroupInformation ugi = ident.getUser();
+    if ( (owner == null) || (owner.isEmpty())) {
+        assertNull(ugi);
+    } else {
+        assertNull(ugi.getRealUser());
+        assertEquals(owner, ugi.getUserName()); // used parameter directly
+        assertEquals(AuthenticationMethod.TOKEN, ugi.getAuthenticationMethod());
+    }
+  }
+
+  @Test
+  @Parameters(method = "valueSetForUserName")
+  public void testGetUserWithOwnerEqualsReal(String str) {
+    String kerberosRule =
+        "RULE:[1:$1]/L\n" +
+        "RULE:[2:$1]/L\n" +
+        "RULE:[2:$1;$2](^.*;admin$)s/;admin$///L\n" +
+        "RULE:[2:$1;$2](^.*;guest$)s/;guest$//g/L\n" +
+        "DEFAULT";
+
+    KerberosName.setRules(kerberosRule);
+    Matcher match = nameParser.matcher(str);
+    Assume.assumeFalse(!match.matches() && str.contains("@"));
+    Text owner = new Text(str);
     TestDelegationTokenIdentifier ident =
         new TestDelegationTokenIdentifier(owner, null, owner);
     UserGroupInformation ugi = ident.getUser();
-    assertNull(ugi.getRealUser());
-    assertEquals("owner", ugi.getUserName());
-    assertEquals(AuthenticationMethod.TOKEN, ugi.getAuthenticationMethod());
+    if ( (owner == null) || (str.isEmpty())) {
+        assertNull(ugi);
+    } else {
+        assertNull(ugi.getRealUser());
+        assertEquals(str, ugi.getUserName()); // used parameter directly
+        assertEquals(AuthenticationMethod.TOKEN, ugi.getAuthenticationMethod());
+    }
+  }
+
+  private Object[] valueSetForTwoUserName() {
+    return new Object[] {
+                new Object[] {"owner", "realUser"},
+                new Object[] {"Owner@123", "realUser123"},
+                new Object[] {"   ", "      "},
+                new Object[] {"owner@", "real@"},
+                new Object[] {"@$!@#$%^&*()#", "!@#$%^&*()"},
+                new Object[] {"223423@23", "456789@98765"},
+    };
   }
 
   @Test
-  public void testGetUserWithOwnerAndReal() {
-    Text owner = new Text("owner");
-    Text realUser = new Text("realUser");
+  @Parameters(method = "valueSetForTwoUserName")
+  public void testGetUserWithOwnerAndReal(String ownerStr, String realUserStr) {
+    String kerberosRule =
+        "RULE:[1:$1]/L\n" +
+        "RULE:[2:$1]/L\n" +
+        "RULE:[2:$1;$2](^.*;admin$)s/;admin$///L\n" +
+        "RULE:[2:$1;$2](^.*;guest$)s/;guest$//g/L\n" +
+        "DEFAULT";
+
+    KerberosName.setRules(kerberosRule);
+    Matcher match = nameParser.matcher(ownerStr);
+    Assume.assumeFalse(!match.matches() && ownerStr.contains("@"));
+    nameParser.matcher(realUserStr);
+    Assume.assumeFalse(!match.matches() && realUserStr.contains("@"));
+    Text owner = new Text(ownerStr);
+    Text realUser = new Text(realUserStr);
     TestDelegationTokenIdentifier ident =
         new TestDelegationTokenIdentifier(owner, null, realUser);
     UserGroupInformation ugi = ident.getUser();
     assertNotNull(ugi.getRealUser());
     assertNull(ugi.getRealUser().getRealUser());
-    assertEquals("owner", ugi.getUserName());
-    assertEquals("realUser", ugi.getRealUser().getUserName());
+    assertEquals(ownerStr, ugi.getUserName()); // used parameter directly
+    assertEquals(realUserStr, ugi.getRealUser().getUserName()); // used parameter directly
     assertEquals(AuthenticationMethod.PROXY,
                  ugi.getAuthenticationMethod());
     assertEquals(AuthenticationMethod.TOKEN,
                  ugi.getRealUser().getAuthenticationMethod());
   }
 
+  private Object[] valueSetForNumberOfElements() {
+     return new Object[] {
+                 new Object[] {2},
+                 new Object[] {5},
+                 new Object[] {0},
+                 new Object[] {-1},
+                 new Object[] {-10},
+                 new Object[] {10},
+     };
+   }
+
   @Test
-  public void testDelegationTokenCount() throws Exception {
+  @Parameters(method = "valueSetForNumberOfElements")
+  public void testDelegationTokenCount(int numberOfTokens) throws Exception {
+    Assume.assumeTrue(numberOfTokens >= 0);
     final TestDelegationTokenSecretManager dtSecretManager =
         new TestDelegationTokenSecretManager(24*60*60*1000,
             3*1000, 1*1000, 3600000);
     try {
       dtSecretManager.startThreads();
       assertThat(dtSecretManager.getCurrentTokensSize()).isZero();
-      final Token<TestDelegationTokenIdentifier> token1 =
-          generateDelegationToken(dtSecretManager, "SomeUser", "JobTracker");
-      assertThat(dtSecretManager.getCurrentTokensSize()).isOne();
-      final Token<TestDelegationTokenIdentifier> token2 =
-          generateDelegationToken(dtSecretManager, "SomeUser", "JobTracker");
-      assertThat(dtSecretManager.getCurrentTokensSize()).isEqualTo(2);
-      dtSecretManager.cancelToken(token1, "JobTracker");
-      assertThat(dtSecretManager.getCurrentTokensSize()).isOne();
-      dtSecretManager.cancelToken(token2, "JobTracker");
+      Token<TestDelegationTokenIdentifier>[] tokens = new Token[numberOfTokens];
+      for (int i = 0; i < numberOfTokens; i++) {
+        tokens[i] = generateDelegationToken(dtSecretManager, "SomeUser", "JobTracker");
+        assertThat(dtSecretManager.getCurrentTokensSize()).isEqualTo(i + 1); // some manipulation of parameter
+      }
+      for (int i = 0; i < numberOfTokens; i++) {
+        dtSecretManager.cancelToken(tokens[i], "JobTracker");
+        assertThat(dtSecretManager.getCurrentTokensSize()).isEqualTo(numberOfTokens - i - 1); // some manipulation of parameter
+      }
       assertThat(dtSecretManager.getCurrentTokensSize()).isZero();
     } finally {
       dtSecretManager.stopThreads();
@@ -590,13 +706,34 @@ public class TestDelegationToken {
   }
       
   @Test
-  public void testSimpleDtidSerialization() throws IOException {
+  @Parameters({
+  "owner,renewer,realUser",
+  ",,",
+  ",b,",
+  "a,,",
+  ",,c",
+  "owner@,renewer@,realUser@",
+  "owner@123,,",
+  ",owner@123,",
+  ",,owner@123"
+  })
+  public void testSimpleDtidSerialization(String owner, String renewer, String realUser) throws IOException {
+    String kerberosRule =
+        "RULE:[1:$1]/L\n" +
+        "RULE:[2:$1]/L\n" +
+        "RULE:[2:$1;$2](^.*;admin$)s/;admin$///L\n" +
+        "RULE:[2:$1;$2](^.*;guest$)s/;guest$//g/L\n" +
+        "DEFAULT";
+
+    KerberosName.setRules(kerberosRule);
+    Matcher match = nameParser.matcher(owner);
+    Assume.assumeFalse(!match.matches() && owner.contains("@"));
+    match = nameParser.matcher(renewer);
+    Assume.assumeFalse(!match.matches() && renewer.contains("@"));
+    match = nameParser.matcher(realUser);
+    Assume.assumeFalse(!match.matches() && realUser.contains("@"));
     assertTrue(testDelegationTokenIdentiferSerializationRoundTrip(
-        new Text("owner"), new Text("renewer"), new Text("realUser")));
-    assertTrue(testDelegationTokenIdentiferSerializationRoundTrip(
-        new Text(""), new Text(""), new Text("")));
-    assertTrue(testDelegationTokenIdentiferSerializationRoundTrip(
-        new Text(""), new Text("b"), new Text("")));
+        new Text(owner), new Text(renewer), new Text(realUser))); // used parameter directly
   }
   
   @Test
@@ -614,10 +751,16 @@ public class TestDelegationToken {
   }
 
   @Test
-  public void testDelegationKeyEqualAndHash() {
-    DelegationKey key1 = new DelegationKey(1111, 2222, "keyBytes".getBytes());
-    DelegationKey key2 = new DelegationKey(1111, 2222, "keyBytes".getBytes());
-    DelegationKey key3 = new DelegationKey(3333, 2222, "keyBytes".getBytes());
+  @Parameters({
+  "1111,2222,keyBytes,3333,2222,keyBytes",
+  "1111,2222,keyBytes,1111,3333,keyBytes",
+  "1111,2222,keyBytes,1111,2222,keyBytes1",
+  "1111,2222,keyBytes,3333,2222,",
+  })
+  public void testDelegationKeyEqualAndHash(int keyId1, long date1, String s1, int keyId2, long date2, String s2) {
+    DelegationKey key1 = new DelegationKey(keyId1, date1, s1.getBytes());
+    DelegationKey key2 = new DelegationKey(keyId1, date1, s1.getBytes());
+    DelegationKey key3 = new DelegationKey(keyId2, date2, s2.getBytes());
     Assert.assertEquals(key1, key2);
     Assert.assertFalse(key2.equals(key3));
   }
@@ -637,20 +780,20 @@ public class TestDelegationToken {
   }
 
   @Test
-  public void testMultipleDelegationTokenSecretManagerMetrics() {
-    TestDelegationTokenSecretManager dtSecretManager1 =
+  @Parameters(method = "valueSetForNumberOfElements")
+  public void testMultipleDelegationTokenSecretManagerMetrics(int numberOfDtSecretManagers) {
+    Assume.assumeTrue(numberOfDtSecretManagers >= 0);
+    TestDelegationTokenSecretManager[] dtSecretManagers =
+        new TestDelegationTokenSecretManager[numberOfDtSecretManagers];
+    for (int i = 0; i < numberOfDtSecretManagers; i++) {
+        if (i != 0 && i % 2 == 0) {
+            DefaultMetricsSystem.instance().init("test");
+        }
+        dtSecretManagers[i] =
         new TestDelegationTokenSecretManager(0, 0, 0, 0);
-    assertNotNull(dtSecretManager1.getMetrics());
+        assertNotNull(dtSecretManagers[i].getMetrics()); // some manipulation of parameter
+    }
 
-    TestDelegationTokenSecretManager dtSecretManager2 =
-        new TestDelegationTokenSecretManager(0, 0, 0, 0);
-    assertNotNull(dtSecretManager2.getMetrics());
-
-    DefaultMetricsSystem.instance().init("test");
-
-    TestDelegationTokenSecretManager dtSecretManager3 =
-        new TestDelegationTokenSecretManager(0, 0, 0, 0);
-    assertNotNull(dtSecretManager3.getMetrics());
   }
 
   @Test

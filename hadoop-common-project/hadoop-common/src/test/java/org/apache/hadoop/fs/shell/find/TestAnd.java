@@ -26,192 +26,77 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.concurrent.TimeUnit;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.apache.hadoop.fs.shell.PathData;
+import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.rules.Timeout;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@RunWith(JUnitParamsRunner.class)
 public class TestAnd {
 
   @Rule
   public Timeout globalTimeout = new Timeout(10000, TimeUnit.MILLISECONDS);
 
-  // test all expressions passing
+  private Object[] valueSetsForDifferentCases() {
+    return new Object[] {
+                // Test 1 testPass ->  test all expressions passing
+                new Object[] {Result.PASS, Result.PASS, Result.PASS},
+                // Test 2 testFailFirst -> test the first expression failing
+                new Object[] {Result.FAIL, Result.PASS, Result.FAIL},
+                // Test 3 testFailSecond -> test the second expression failing
+                new Object[] {Result.PASS, Result.FAIL, Result.FAIL},
+                // Test 4 testFailBoth -> test both expressions failing
+                new Object[] {Result.FAIL, Result.FAIL, Result.FAIL},
+                // Test 5 testStopFirst -> test the first expression stopping
+                new Object[] {Result.STOP, Result.PASS, Result.STOP},
+                // Test 6 testStopSecond -> test the second expression stopping
+                new Object[] {Result.PASS, Result.STOP, Result.STOP},
+                // Test 7 testStopFail -> test first expression stopping and second failing
+                new Object[] {Result.STOP, Result.FAIL, Result.STOP.combine(Result.FAIL)},
+    };
+  }
+
+
   @Test
-  public void testPass() throws IOException {
+  @Parameters(method = "valueSetsForDifferentCases")
+  public void testPass(Result firstResult, Result secondResult, Result expectedResult) throws IOException {
     And and = new And();
 
     PathData pathData = mock(PathData.class);
 
     Expression first = mock(Expression.class);
-    when(first.apply(pathData, -1)).thenReturn(Result.PASS);
+    when(first.apply(pathData, -1)).thenReturn(firstResult);
 
     Expression second = mock(Expression.class);
-    when(second.apply(pathData, -1)).thenReturn(Result.PASS);
+    when(second.apply(pathData, -1)).thenReturn(secondResult);
 
     Deque<Expression> children = new LinkedList<Expression>();
     children.add(second);
     children.add(first);
     and.addChildren(children);
 
-    assertEquals(Result.PASS, and.apply(pathData, -1));
+    assertEquals(expectedResult, and.apply(pathData, -1)); // used parameter directly
     verify(first).apply(pathData, -1);
-    verify(second).apply(pathData, -1);
+    if (firstResult == Result.PASS || firstResult == Result.STOP) {
+        verify(second).apply(pathData, -1);
+    }
     verifyNoMoreInteractions(first);
     verifyNoMoreInteractions(second);
   }
 
-  // test the first expression failing
   @Test
-  public void testFailFirst() throws IOException {
-    And and = new And();
-
-    PathData pathData = mock(PathData.class);
-
-    Expression first = mock(Expression.class);
-    when(first.apply(pathData, -1)).thenReturn(Result.FAIL);
-
-    Expression second = mock(Expression.class);
-    when(second.apply(pathData, -1)).thenReturn(Result.PASS);
-
-    Deque<Expression> children = new LinkedList<Expression>();
-    children.add(second);
-    children.add(first);
-    and.addChildren(children);
-
-    assertEquals(Result.FAIL, and.apply(pathData, -1));
-    verify(first).apply(pathData, -1);
-    verifyNoMoreInteractions(first);
-    verifyNoMoreInteractions(second);
-  }
-
-  // test the second expression failing
-  @Test
-  public void testFailSecond() throws IOException {
-    And and = new And();
-
-    PathData pathData = mock(PathData.class);
-
-    Expression first = mock(Expression.class);
-    when(first.apply(pathData, -1)).thenReturn(Result.PASS);
-
-    Expression second = mock(Expression.class);
-    when(second.apply(pathData, -1)).thenReturn(Result.FAIL);
-
-    Deque<Expression> children = new LinkedList<Expression>();
-    children.add(second);
-    children.add(first);
-    and.addChildren(children);
-
-    assertEquals(Result.FAIL, and.apply(pathData, -1));
-    verify(first).apply(pathData, -1);
-    verify(second).apply(pathData, -1);
-    verifyNoMoreInteractions(first);
-    verifyNoMoreInteractions(second);
-  }
-
-  // test both expressions failing
-  @Test
-  public void testFailBoth() throws IOException {
-    And and = new And();
-
-    PathData pathData = mock(PathData.class);
-
-    Expression first = mock(Expression.class);
-    when(first.apply(pathData, -1)).thenReturn(Result.FAIL);
-
-    Expression second = mock(Expression.class);
-    when(second.apply(pathData, -1)).thenReturn(Result.FAIL);
-
-    Deque<Expression> children = new LinkedList<Expression>();
-    children.add(second);
-    children.add(first);
-    and.addChildren(children);
-
-    assertEquals(Result.FAIL, and.apply(pathData, -1));
-    verify(first).apply(pathData, -1);
-    verifyNoMoreInteractions(first);
-    verifyNoMoreInteractions(second);
-  }
-
-  // test the first expression stopping
-  @Test
-  public void testStopFirst() throws IOException {
-    And and = new And();
-
-    PathData pathData = mock(PathData.class);
-
-    Expression first = mock(Expression.class);
-    when(first.apply(pathData, -1)).thenReturn(Result.STOP);
-
-    Expression second = mock(Expression.class);
-    when(second.apply(pathData, -1)).thenReturn(Result.PASS);
-
-    Deque<Expression> children = new LinkedList<Expression>();
-    children.add(second);
-    children.add(first);
-    and.addChildren(children);
-
-    assertEquals(Result.STOP, and.apply(pathData, -1));
-    verify(first).apply(pathData, -1);
-    verify(second).apply(pathData, -1);
-    verifyNoMoreInteractions(first);
-    verifyNoMoreInteractions(second);
-  }
-
-  // test the second expression stopping
-  @Test
-  public void testStopSecond() throws IOException {
-    And and = new And();
-
-    PathData pathData = mock(PathData.class);
-
-    Expression first = mock(Expression.class);
-    when(first.apply(pathData, -1)).thenReturn(Result.PASS);
-
-    Expression second = mock(Expression.class);
-    when(second.apply(pathData, -1)).thenReturn(Result.STOP);
-
-    Deque<Expression> children = new LinkedList<Expression>();
-    children.add(second);
-    children.add(first);
-    and.addChildren(children);
-
-    assertEquals(Result.STOP, and.apply(pathData, -1));
-    verify(first).apply(pathData, -1);
-    verify(second).apply(pathData, -1);
-    verifyNoMoreInteractions(first);
-    verifyNoMoreInteractions(second);
-  }
-
-  // test first expression stopping and second failing
-  @Test
-  public void testStopFail() throws IOException {
-    And and = new And();
-
-    PathData pathData = mock(PathData.class);
-
-    Expression first = mock(Expression.class);
-    when(first.apply(pathData, -1)).thenReturn(Result.STOP);
-
-    Expression second = mock(Expression.class);
-    when(second.apply(pathData, -1)).thenReturn(Result.FAIL);
-
-    Deque<Expression> children = new LinkedList<Expression>();
-    children.add(second);
-    children.add(first);
-    and.addChildren(children);
-
-    assertEquals(Result.STOP.combine(Result.FAIL), and.apply(pathData, -1));
-    verify(first).apply(pathData, -1);
-    verify(second).apply(pathData, -1);
-    verifyNoMoreInteractions(first);
-    verifyNoMoreInteractions(second);
-  }
-
-  // test setOptions is called on child
-  @Test
-  public void testSetOptions() throws IOException {
+  @Parameters({
+  "setOptions", // Test 8: testSetOptions :- test setOptions is called on child
+  "prepare", // Test 9: testPrepare :- test prepare is called on child
+  "finish", // Test 10: testFinish :- test finish is called on child
+  "randomTestName", // check ignore on random function name
+  "", // check ignore on random function name
+  })
+  public void testCallFunctionOnChild(String function) throws IOException {
     And and = new And();
     Expression first = mock(Expression.class);
     Expression second = mock(Expression.class);
@@ -221,48 +106,30 @@ public class TestAnd {
     children.add(first);
     and.addChildren(children);
 
-    FindOptions options = mock(FindOptions.class);
-    and.setOptions(options);
-    verify(first).setOptions(options);
-    verify(second).setOptions(options);
-    verifyNoMoreInteractions(first);
-    verifyNoMoreInteractions(second);
-  }
-
-  // test prepare is called on child
-  @Test
-  public void testPrepare() throws IOException {
-    And and = new And();
-    Expression first = mock(Expression.class);
-    Expression second = mock(Expression.class);
-
-    Deque<Expression> children = new LinkedList<Expression>();
-    children.add(second);
-    children.add(first);
-    and.addChildren(children);
-
-    and.prepare();
-    verify(first).prepare();
-    verify(second).prepare();
-    verifyNoMoreInteractions(first);
-    verifyNoMoreInteractions(second);
-  }
-
-  // test finish is called on child
-  @Test
-  public void testFinish() throws IOException {
-    And and = new And();
-    Expression first = mock(Expression.class);
-    Expression second = mock(Expression.class);
-
-    Deque<Expression> children = new LinkedList<Expression>();
-    children.add(second);
-    children.add(first);
-    and.addChildren(children);
-
-    and.finish();
-    verify(first).finish();
-    verify(second).finish();
+    switch (function) {
+        case "setOptions": {
+            FindOptions options = mock(FindOptions.class);
+            and.setOptions(options);
+            verify(first).setOptions(options);
+            verify(second).setOptions(options);
+            break;
+        }
+        case "prepare": {
+            and.prepare();
+            verify(first).prepare();
+            verify(second).prepare();
+            break;
+        }
+        case "finish": {
+            and.finish();
+            verify(first).finish();
+            verify(second).finish();
+            break;
+        }
+        default: {
+            Assume.assumeTrue(false);
+        }
+    }
     verifyNoMoreInteractions(first);
     verifyNoMoreInteractions(second);
   }

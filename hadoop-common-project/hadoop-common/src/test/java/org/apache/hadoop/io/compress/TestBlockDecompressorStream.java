@@ -29,8 +29,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+import org.junit.Assume;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@RunWith(JUnitParamsRunner.class)
 public class TestBlockDecompressorStream {
   
   private byte[] buf;
@@ -38,18 +43,16 @@ public class TestBlockDecompressorStream {
   private ByteArrayOutputStream bytesOut;
 
   @Test
-  public void testRead1() throws IOException {
-    testRead(0);
-  }
-
-  @Test
-  public void testRead2() throws IOException {
-    // Test eof after getting non-zero block size info
-    testRead(4);
-  }
-
-  private void testRead(int bufLen) throws IOException {
+  @Parameters({
+  "0, 1024",
+  "4, 2048",
+  "-100, -200",
+  "555, 0",
+  "-277, 100"
+  })
+  public void testRead(int bufLen, int buffSize) throws IOException {
     // compress empty stream
+    Assume.assumeTrue(buffSize > 0);
     bytesOut = new ByteArrayOutputStream();
     if (bufLen > 0) {
       bytesOut.write(ByteBuffer.allocate(bufLen).putInt(1024).array(), 0,
@@ -57,21 +60,21 @@ public class TestBlockDecompressorStream {
     }
     BlockCompressorStream blockCompressorStream = 
       new BlockCompressorStream(bytesOut, 
-          new FakeCompressor(), 1024, 0);
+          new FakeCompressor(), buffSize, 0);
     // close without any write
     blockCompressorStream.close();
     
     // check compressed output 
     buf = bytesOut.toByteArray();
-    assertEquals("empty file compressed output size is not " + (bufLen + 4),
-        bufLen + 4, buf.length);
+    assertEquals("empty file compressed output size is not " + (Math.max(0, bufLen) + 4),
+        Math.max(0, bufLen) + 4, buf.length); // formula
     
     // use compressed output as input for decompression
     bytesIn = new ByteArrayInputStream(buf);
     
     // get decompression stream
     try (BlockDecompressorStream blockDecompressorStream =
-      new BlockDecompressorStream(bytesIn, new FakeDecompressor(), 1024)) {
+      new BlockDecompressorStream(bytesIn, new FakeDecompressor(), buffSize)) {
       assertEquals("return value is not -1", 
           -1 , blockDecompressorStream.read());
     } catch (IOException e) {
@@ -80,7 +83,15 @@ public class TestBlockDecompressorStream {
   }
 
   @Test
-  public void testReadWhenIoExceptionOccure() throws IOException {
+  @Parameters({
+  "1024",
+  "2048",
+  "-200",
+  "0",
+  "100"
+  })
+  public void testReadWhenIoExceptionOccure(int buffSize) throws IOException {
+    Assume.assumeTrue(buffSize > 0);
     File file = new File("testReadWhenIOException");
     try {
       file.createNewFile();
@@ -92,7 +103,7 @@ public class TestBlockDecompressorStream {
       };
 
       try (BlockDecompressorStream blockDecompressorStream =
-          new BlockDecompressorStream(io, new FakeDecompressor(), 1024)) {
+          new BlockDecompressorStream(io, new FakeDecompressor(), buffSize)) {
         int byteRead = blockDecompressorStream.read();
         fail("Should not return -1 in case of IOException. Byte read "
             + byteRead);

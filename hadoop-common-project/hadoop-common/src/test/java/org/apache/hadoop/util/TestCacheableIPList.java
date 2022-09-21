@@ -18,12 +18,41 @@
 package org.apache.hadoop.util;
 
 import java.io.IOException;
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import static org.junit.Assert.*;
 
+@RunWith(JUnitParamsRunner.class)
 public class TestCacheableIPList {
 
+  private String[] getIp1Array() {
+    String[] ips1 = {"10.119.103.112", "10.221.102.0/23", "10.113.221.221"};
+    return ips1;
+  }
+
+  private String[] getIp2Array() {
+    String[]ips2 = {"10.119.103.112", "10.221.102.0/23",
+                        "10.222.0.0/16", "10.113.221.221", "10.113.221.222"};
+    return ips2;
+  }
+
+  private Object[] testParameters() {
+    return new Object[] {
+        new Object[] { getIp1Array(), getIp2Array(), "10.113.221.222", false, true, true, 100 }, // default test 1
+        new Object[] { getIp1Array(), getIp2Array(), "10.222.103.121", false, true, true ,100 }, // default test 1
+        new Object[] { getIp2Array(), getIp1Array(), "10.113.221.222", true, true, false, 100 }, // default test 2
+        new Object[] { getIp2Array(), getIp1Array(), "10.222.103.121", true, true, false ,100 }, // default test 2
+        new Object[] { getIp1Array(), getIp2Array(), "10.113.221.222", false, false, true, 100 }, // default test 3
+        new Object[] { getIp1Array(), getIp2Array(), "10.222.103.121", false, false, true ,100 }, // default test 3
+        new Object[] { getIp2Array(), getIp1Array(), "10.113.221.222", true, false, false, 100 }, // default test 4
+        new Object[] { getIp2Array(), getIp1Array(), "10.222.103.121", true, false, false ,100 }, // default test 4
+
+    };
+  }
+
   /**
    * Add a bunch of subnets and IPSs to the file
    * setup a low cache refresh
@@ -35,155 +64,33 @@ public class TestCacheableIPList {
    * Check for exclusion
    */
   @Test
-  public void testAddWithSleepForCacheTimeout() throws IOException, InterruptedException {
-
-    String[] ips = {"10.119.103.112", "10.221.102.0/23", "10.113.221.221"};
-
+  @Parameters(method = "testParameters")
+  // ips1[], ips2[], ipToCheck, existBool, ipToCheckAfterSleep ???, existAfterSleepBool, chooseMethod, sleep time
+  public void testAddWithSleepForCacheTimeout(String[] ips, String[] ips2, String ipToCHeck, boolean expectBool,
+        boolean useSleepToRefresh, boolean expectBoolAfter, int timeout) throws IOException, InterruptedException {
+        // decide (how?) proper indent of line break
     TestFileBasedIPList.createFileWithEntries ("ips.txt", ips);
 
     CacheableIPList cipl = new CacheableIPList(
-        new FileBasedIPList("ips.txt"),100);
+        new FileBasedIPList("ips.txt"),timeout);
 
-    assertFalse("10.113.221.222 is in the list",
-        cipl.isIn("10.113.221.222"));
-    assertFalse ("10.222.103.121 is  in the list",
-        cipl.isIn("10.222.103.121"));
+    assertEquals(ipToCHeck + " is" + (expectBool ? " not " : " " ) + "in the list",
+        expectBool, cipl.isIn(ipToCHeck)); // used parameter directly
 
     TestFileBasedIPList.removeFile("ips.txt");
-    String[]ips2 = {"10.119.103.112", "10.221.102.0/23",
-        "10.222.0.0/16", "10.113.221.221", "10.113.221.222"};
 
     TestFileBasedIPList.createFileWithEntries ("ips.txt", ips2);
-    Thread.sleep(101);
 
-    assertTrue("10.113.221.222 is not in the list",
-        cipl.isIn("10.113.221.222"));
-    assertTrue ("10.222.103.121 is not in the list",
-        cipl.isIn("10.222.103.121"));
+    if (useSleepToRefresh) {
+        Thread.sleep(timeout+1);
+    } else {
+        cipl.refresh();
+    }
+
+    assertEquals(ipToCHeck + " is" + (expectBoolAfter ? " not " : " " ) + "in the list",
+        expectBoolAfter, cipl.isIn(ipToCHeck)); // used parameter directly
 
     TestFileBasedIPList.removeFile("ips.txt");
   }
-
-  /**
-   * Add a bunch of subnets and IPSs to the file
-   * setup a low cache refresh
-   * test for inclusion
-   * Check for exclusion
-   * Remove a bunch of subnets and Ips
-   * wait for cache timeout.
-   * test for inclusion
-   * Check for exclusion
-   */
-  @Test
-  public void testRemovalWithSleepForCacheTimeout() throws IOException, InterruptedException {
-
-    String[] ips = {"10.119.103.112", "10.221.102.0/23",
-        "10.222.0.0/16", "10.113.221.221", "10.113.221.222"};
-
-    TestFileBasedIPList.createFileWithEntries ("ips.txt", ips);
-
-    CacheableIPList cipl = new CacheableIPList(
-        new FileBasedIPList("ips.txt"),100);
-
-    assertTrue("10.113.221.222 is not in the list",
-        cipl.isIn("10.113.221.222"));
-    assertTrue ("10.222.103.121 is not in the list",
-        cipl.isIn("10.222.103.121"));
-
-    TestFileBasedIPList.removeFile("ips.txt");
-    String[]ips2 = {"10.119.103.112", "10.221.102.0/23", "10.113.221.221"};
-
-    TestFileBasedIPList.createFileWithEntries ("ips.txt", ips2);
-    Thread.sleep(1005);
-
-    assertFalse("10.113.221.222 is in the list",
-        cipl.isIn("10.113.221.222"));
-    assertFalse ("10.222.103.121 is  in the list",
-        cipl.isIn("10.222.103.121"));
-
-    TestFileBasedIPList.removeFile("ips.txt");
-  }
-
-  /**
-   * Add a bunch of subnets and IPSs to the file
-   * setup a low cache refresh
-   * test for inclusion
-   * Check for exclusion
-   * Add a bunch of subnets and Ips
-   * do a refresh
-   * test for inclusion
-   * Check for exclusion
-   */
-  @Test
-  public void testAddWithRefresh() throws IOException, InterruptedException {
-
-    String[] ips = {"10.119.103.112", "10.221.102.0/23", "10.113.221.221"};
-
-    TestFileBasedIPList.createFileWithEntries ("ips.txt", ips);
-
-    CacheableIPList cipl = new CacheableIPList(
-        new FileBasedIPList("ips.txt"),100);
-
-    assertFalse("10.113.221.222 is in the list",
-        cipl.isIn("10.113.221.222"));
-    assertFalse ("10.222.103.121 is  in the list",
-        cipl.isIn("10.222.103.121"));
-
-    TestFileBasedIPList.removeFile("ips.txt");
-    String[]ips2 = {"10.119.103.112", "10.221.102.0/23",
-        "10.222.0.0/16", "10.113.221.221", "10.113.221.222"};
-
-    TestFileBasedIPList.createFileWithEntries ("ips.txt", ips2);
-    cipl.refresh();
-
-    assertTrue("10.113.221.222 is not in the list",
-        cipl.isIn("10.113.221.222"));
-    assertTrue ("10.222.103.121 is not in the list",
-        cipl.isIn("10.222.103.121"));
-
-    TestFileBasedIPList.removeFile("ips.txt");
-  }
-
-  /**
-   * Add a bunch of subnets and IPSs to the file
-   * setup a low cache refresh
-   * test for inclusion
-   * Check for exclusion
-   * Remove a bunch of subnets and Ips
-   * wait for cache timeout.
-   * test for inclusion
-   * Check for exclusion
-   */
-  @Test
-  public void testRemovalWithRefresh() throws IOException, InterruptedException {
-
-    String[] ips = {"10.119.103.112", "10.221.102.0/23",
-        "10.222.0.0/16", "10.113.221.221", "10.113.221.222"};
-
-    TestFileBasedIPList.createFileWithEntries ("ips.txt", ips);
-
-    CacheableIPList cipl = new CacheableIPList(
-        new FileBasedIPList("ips.txt"),100);
-
-    assertTrue("10.113.221.222 is not in the list",
-        cipl.isIn("10.113.221.222"));
-    assertTrue ("10.222.103.121 is not in the list",
-        cipl.isIn("10.222.103.121"));
-
-    TestFileBasedIPList.removeFile("ips.txt");
-    String[]ips2 = {"10.119.103.112", "10.221.102.0/23", "10.113.221.221"};
-
-    TestFileBasedIPList.createFileWithEntries ("ips.txt", ips2);
-    cipl.refresh();
-
-    assertFalse("10.113.221.222 is in the list",
-        cipl.isIn("10.113.221.222"));
-    assertFalse ("10.222.103.121 is  in the list",
-        cipl.isIn("10.222.103.121"));
-
-    TestFileBasedIPList.removeFile("ips.txt");
-  }
-
-
 
 }

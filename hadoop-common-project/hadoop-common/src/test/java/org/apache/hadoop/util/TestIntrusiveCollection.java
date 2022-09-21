@@ -30,15 +30,20 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+import org.junit.Assume;
 import org.junit.Test;
 
 import org.apache.hadoop.test.HadoopTestBase;
 import org.apache.hadoop.util.IntrusiveCollection.Element;
+import org.junit.runner.RunWith;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+@RunWith(JUnitParamsRunner.class)
 public class TestIntrusiveCollection extends HadoopTestBase {
   static class SimpleElement implements IntrusiveCollection.Element {
     private Map<IntrusiveCollection<? extends Element>, Element>
@@ -94,55 +99,58 @@ public class TestIntrusiveCollection extends HadoopTestBase {
     }
   }
 
+  private Object[] valueSetForNumberOfElements() {
+    return new Object[] {
+                new Object[] {1},
+                new Object[] {3},
+                new Object[] {0},
+                new Object[] {-1},
+                new Object[] {-10},
+                new Object[] {10},
+    };
+  }
+
   /**
    * <pre>
-   * Scenario S1.1: Adding an element
+   * Scenario S1.1: Adding and removing elements
    * Given  an IntrusiveCollection has been created
    *  and    the IntrusiveCollection is empty
-   * When    I insert an element
-   * Then    the IntrusiveCollection contains the newly added element.
+   * When    I insert elements
+   *  and    then remove them
+   * Then    The IntrusiveCollection contains the newly added elements
+   *  and    doesn't find them once removed
+   *  and    the IntrusiveCollection is empty at last
    * </pre>
    */
   @Test
-  public void testShouldAddElement() {
+  @Parameters(method = "valueSetForNumberOfElements")
+  public void testShouldAddAndRemoveElements(int numberOfElementsToAddAndRemove) {
+    Assume.assumeTrue(numberOfElementsToAddAndRemove >= 0);
     IntrusiveCollection<SimpleElement> intrusiveCollection =
       new IntrusiveCollection<>();
-
-    SimpleElement element = new SimpleElement();
-    intrusiveCollection.add(element);
-
-    assertFalse("Collection should not be empty",
-        intrusiveCollection.isEmpty());
-    assertTrue("Collection should contain added element",
-        intrusiveCollection.contains(element));
-  }
-
-  /**
-   * <pre>
-   * Scenario S1.2: Removing an element
-   * Given  an IntrusiveCollection has been created
-   *  and    the InstrusiveCollection contains a single element
-   * When    I remove the element
-   * Then    the IntrusiveCollection is empty.
-   * </pre>
-   */
-  @Test
-  public void testShouldRemoveElement() {
-    IntrusiveCollection<SimpleElement> intrusiveCollection =
-      new IntrusiveCollection<>();
-    SimpleElement element = new SimpleElement();
-    intrusiveCollection.add(element);
-
-    intrusiveCollection.remove(element);
-
+    SimpleElement[] elements = new SimpleElement[numberOfElementsToAddAndRemove];
+    for (int i = 0; i < numberOfElementsToAddAndRemove; i++) {
+        elements[i] = new SimpleElement();
+        intrusiveCollection.add(elements[i]);
+        assertFalse("Collection should not be empty",
+            intrusiveCollection.isEmpty());
+    }
+    for (int i = 0; i < numberOfElementsToAddAndRemove; i++) {
+        assertTrue("Collection should contain added element",
+            intrusiveCollection.contains(elements[i])); // some manipulation of parameter
+    }
+    for (int i = 0; i < numberOfElementsToAddAndRemove; i++) {
+        intrusiveCollection.remove(elements[i]);
+        assertFalse("Collection should not contain removed element",
+            intrusiveCollection.contains(elements[i])); // some manipulation of parameter
+    }
     assertTrue("Collection should be empty", intrusiveCollection.isEmpty());
-    assertFalse("Collection should not contain removed element",
-        intrusiveCollection.contains(element));
   }
+
 
   /**
    * <pre>
-   * Scenario S1.3: Removing all elements
+   * Scenario S1.2: Removing all elements
    * Given  an IntrusiveCollection has been created
    *  and    the IntrusiveCollection contains multiple elements
    * When    I remove all elements
@@ -150,13 +158,13 @@ public class TestIntrusiveCollection extends HadoopTestBase {
    * </pre>
    */
   @Test
-  public void testShouldRemoveAllElements() {
+  @Parameters(method = "valueSetForNumberOfElements")
+  public void testShouldRemoveAllElements(int numberOfElements) {
     IntrusiveCollection<SimpleElement> intrusiveCollection =
       new IntrusiveCollection<>();
-    intrusiveCollection.add(new SimpleElement());
-    intrusiveCollection.add(new SimpleElement());
-    intrusiveCollection.add(new SimpleElement());
-
+    for (int i = 0; i < numberOfElements; i++) {
+        intrusiveCollection.add(new SimpleElement());
+    }
     intrusiveCollection.clear();
 
     assertTrue("Collection should be empty", intrusiveCollection.isEmpty());
@@ -164,7 +172,7 @@ public class TestIntrusiveCollection extends HadoopTestBase {
 
   /**
    * <pre>
-   * Scenario S1.4: Iterating through elements
+   * Scenario S1.3: Iterating through elements
    * Given  an IntrusiveCollection has been created
    *  and    the IntrusiveCollection contains multiple elements
    * When    I iterate through the IntrusiveCollection
@@ -172,22 +180,22 @@ public class TestIntrusiveCollection extends HadoopTestBase {
    * </pre>
    */
   @Test
-  public void testIterateShouldReturnAllElements() {
+  @Parameters(method = "valueSetForNumberOfElements")
+  public void testIterateShouldReturnAllElements(int numberOfElements) {
+    Assume.assumeTrue(numberOfElements >= 0);
     IntrusiveCollection<SimpleElement> intrusiveCollection =
       new IntrusiveCollection<>();
-    SimpleElement elem1 = new SimpleElement();
-    SimpleElement elem2 = new SimpleElement();
-    SimpleElement elem3 = new SimpleElement();
-    intrusiveCollection.add(elem1);
-    intrusiveCollection.add(elem2);
-    intrusiveCollection.add(elem3);
+    SimpleElement[] elements = new SimpleElement[numberOfElements];
+    for (int i = 0; i < numberOfElements; i++) {
+        elements[i] = new SimpleElement();
+        intrusiveCollection.add(elements[i]);
+    }
 
     Iterator<SimpleElement> iterator = intrusiveCollection.iterator();
 
-    assertEquals("First element returned is incorrect", elem1, iterator.next());
-    assertEquals("Second element returned is incorrect", elem2,
-        iterator.next());
-    assertEquals("Third element returned is incorrect", elem3, iterator.next());
+    for (int i = 0; i < numberOfElements; i++) {
+        assertEquals((i + 1) + " element returned is incorrect", elements[i], iterator.next()); // some manipulation of parameter
+    }
     assertFalse("Iterator should not have next element", iterator.hasNext());
   }
 }

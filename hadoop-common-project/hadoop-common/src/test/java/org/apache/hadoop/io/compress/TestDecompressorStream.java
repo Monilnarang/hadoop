@@ -24,13 +24,38 @@ import static org.junit.Assert.fail;
 import java.io.ByteArrayInputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
 
-import org.junit.Before;
+import org.junit.Assume;import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+@RunWith(Parameterized.class)
 public class TestDecompressorStream {
-  private static final String TEST_STRING =
-      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  @Parameterized.Parameter(0)
+  public String TEST_STRING;
+
+  @Parameterized.Parameters
+  public static Collection<Object> testData() {
+    Object[][] data = new Object[][] { {"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"},
+                                       {"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"},
+                                       {"!@#$%^&*()_+-=[]}{';:<>?/.,1234567890qwertyuioplkjhgfdsazxcvbnm"},
+                                       {"qwertyuioplkjhgfdsazxcvbnm"},
+                                       {"1234567890"},
+                                       {"                                                                "},
+                                       {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                                       {"1234567890123456789012345"},
+                                       {"12345678901234567890123456"},
+                                       {"=-_+)(*&^%$#@!`~[]{}|';:/.,<>?!@#$%^&*()_"},
+                                       {" 1 1 1 1 1 1 1 1 1 1 1 1 1 1"},
+                                       {""},
+                                       {null},
+        };
+    return Arrays.asList(data);
+    }
 
   private ByteArrayInputStream bytesIn;
   private Decompressor decompressor;
@@ -38,6 +63,7 @@ public class TestDecompressorStream {
 
   @Before
   public void setUp() throws IOException {
+    Assume.assumeTrue(TEST_STRING != null);
     bytesIn = new ByteArrayInputStream(TEST_STRING.getBytes());
     decompressor = new FakeDecompressor();
     decompressorStream =
@@ -82,6 +108,7 @@ public class TestDecompressorStream {
 
   @Test
   public void testSkip() throws IOException {
+    Assume.assumeTrue(TEST_STRING.length() > 25);
     assertThat(decompressorStream.skip(12)).isEqualTo(12L);
     assertThat(decompressorStream.read()).isEqualTo(TEST_STRING.charAt(12));
     assertThat(decompressorStream.read()).isEqualTo(TEST_STRING.charAt(13));

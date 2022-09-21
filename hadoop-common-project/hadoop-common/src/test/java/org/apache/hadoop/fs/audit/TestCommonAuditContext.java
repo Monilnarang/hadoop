@@ -24,8 +24,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.assertj.core.api.AbstractStringAssert;
+import org.junit.Assume;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,6 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Tests of the common audit context.
  */
+@RunWith(JUnitParamsRunner.class)
 public class TestCommonAuditContext extends AbstractHadoopTestBase {
 
   private static final Logger LOG =
@@ -56,9 +61,14 @@ public class TestCommonAuditContext extends AbstractHadoopTestBase {
    * We can set, get and enumerate global context values.
    */
   @Test
-  public void testGlobalSetGetEnum() throws Throwable {
+  @Parameters({
+    "command",
+    "truth 123",
+    "space !@#$%^&*() space ",
+    "",
+    "  " })
+  public void testGlobalSetGetEnum(String s) throws Throwable {
 
-    String s = "command";
     setGlobalContextEntry(PARAM_COMMAND, s);
     assertGlobalEntry(PARAM_COMMAND)
         .isEqualTo(s);
@@ -101,18 +111,24 @@ public class TestCommonAuditContext extends AbstractHadoopTestBase {
    * Verify functions are dynamically evaluated.
    */
   @Test
-  public void testDynamicEval() throws Throwable {
+  @Parameters({
+    "key, false, false",
+    "Key 123, true, true",
+    ", false, true",
+    "      , true, false",
+    "key !@#$%^&*(), false, true" })
+  public void testDynamicEval(String key, Boolean boolToSet, Boolean boolInit) throws Throwable {
     context.reset();
-    final AtomicBoolean ab = new AtomicBoolean(false);
-    context.put("key", () ->
+    final AtomicBoolean ab = new AtomicBoolean(boolInit);
+    context.put(key, () ->
         Boolean.toString(ab.get()));
-    assertContextValue("key")
-        .isEqualTo("false");
+    assertContextValue(key) // used parameter directly
+        .isEqualTo(boolInit.toString());
     // update the reference and the next get call will
     // pick up the new value.
-    ab.set(true);
-    assertContextValue("key")
-        .isEqualTo("true");
+    ab.set(boolToSet);
+    assertContextValue(key) // used parameter directly
+        .isEqualTo(boolToSet.toString()); // some manipulation of parameter
   }
 
   private String getContextValue(final String key) {
@@ -168,8 +184,14 @@ public class TestCommonAuditContext extends AbstractHadoopTestBase {
   }
 
   @Test
-  public void testAddRemove() throws Throwable {
-    final String key = "testAddRemove";
+  @Parameters({
+    "command",
+    "truth 123",
+    "space !@#$%^&*() space ",
+    "",
+    "    " })
+  public void testAddRemove(String key) throws Throwable {
+    Assume.assumeTrue(key.trim().length() > 0);
     assertContextValueIsNull(key);
     context.put(key, key);
     assertContextValue(key).isEqualTo(key);

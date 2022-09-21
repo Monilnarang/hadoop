@@ -18,6 +18,8 @@
 
 package org.apache.hadoop.service.launcher;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.service.BreakableService;
 import org.apache.hadoop.service.launcher.testservices.FailingStopInStartService;
@@ -32,23 +34,28 @@ import org.apache.hadoop.service.launcher.testservices.StringConstructorOnlyServ
 import static org.apache.hadoop.test.GenericTestUtils.*;
 import static org.apache.hadoop.service.launcher.testservices.ExceptionInExecuteLaunchableService.*;
 
-import org.junit.Test;
-
+import org.junit.Assume;import org.junit.Test;
+import org.junit.runner.RunWith;
+@RunWith(JUnitParamsRunner.class)
 public class TestServiceLauncher extends AbstractServiceLauncherTestBase {
 
-  @Test
-  public void testRunService() throws Throwable {
-    assertRuns(RunningService.NAME);
+  private Object[] valueSetForTestingServicesAndConstructors()throws Throwable {
+    return new Object[] {
+        new Object[] {RunningService.NAME},
+        new Object[] {NullBindLaunchableService.NAME},
+        new Object[] {StringConstructorOnlyService.NAME},
+        new Object[] {InitInConstructorLaunchableService.NAME},
+        new Object[] {NoArgsAllowedService.NAME},
+        new Object[] {NoArgsAllowedService.NAME, LauncherArguments.ARG_CONF_PREFIXED, configFile(newConf())},
+        new Object[] {LaunchableRunningService.NAME},
+        new Object[] {StoppingInStartLaunchableService.NAME}
+    };
   }
 
   @Test
-  public void testNullBindService() throws Throwable {
-    assertRuns(NullBindLaunchableService.NAME);
-  }
-
-  @Test
-  public void testServiceLaunchStringConstructor() throws Throwable {
-    assertRuns(StringConstructorOnlyService.NAME);
+  @Parameters(method = "valueSetForTestingServicesAndConstructors")
+  public void testRunServicesAndConstructors(String... args) throws Throwable {
+    assertRuns(args); // used parameter directly
   }
 
   /**
@@ -68,40 +75,26 @@ public class TestServiceLauncher extends AbstractServiceLauncherTestBase {
     assertEquals(FailingStopInStartService.EXIT_CODE, e.getExitCode());
   }
 
-  @Test
-  public void testEx() throws Throwable {
-    assertLaunchOutcome(EXIT_EXCEPTION_THROWN,
-        OTHER_EXCEPTION_TEXT,
-        NAME);
+  private Object[] valueSetForTestingExceptionAndExits()throws Throwable {
+    return new Object[] {
+        new Object[] {EXIT_EXCEPTION_THROWN, OTHER_EXCEPTION_TEXT, NAME},
+        new Object[] {EXIT_OTHER_FAILURE, SLE_TEXT, NAME, ARG_THROW_SLE},
+        new Object[] {IOE_EXIT_CODE, EXIT_IN_IOE_TEXT, NAME, ARG_THROW_IOE},
+        new Object[] {EXIT_EXCEPTION_THROWN, "java.lang.OutOfMemoryError", NAME, ARG_THROWABLE},
+        new Object[] {EXIT_COMMAND_ARGUMENT_ERROR, "1", NoArgsAllowedService.NAME, "one"},
+        new Object[] {EXIT_OTHER_FAILURE, "", LaunchableRunningService.NAME, LaunchableRunningService.ARG_FAILING},
+    };
   }
 
   /**
-   * This test verifies that exceptions in the
+   * Value set 2 verifies that exceptions in the
    * {@link LaunchableService#execute()} method are relayed if an instance of
    * an exit exceptions, and forwarded if not.
    */
   @Test
-  public void testServiceLaunchException() throws Throwable {
-    assertLaunchOutcome(EXIT_OTHER_FAILURE,
-        SLE_TEXT,
-        NAME,
-        ARG_THROW_SLE);
-  }
-
-  @Test
-  public void testIOE() throws Throwable {
-    assertLaunchOutcome(IOE_EXIT_CODE,
-        EXIT_IN_IOE_TEXT,
-        NAME,
-        ARG_THROW_IOE);
-  }
-
-  @Test
-  public void testThrowable() throws Throwable {
-    assertLaunchOutcome(EXIT_EXCEPTION_THROWN,
-        "java.lang.OutOfMemoryError",
-        NAME,
-        ARG_THROWABLE);
+  @Parameters(method = "valueSetForTestingExceptionAndExits")
+  public void testExceptionsAndExits(int expected, String text, String... args) throws Throwable {
+    assertLaunchOutcome(expected, text, args); // used parameter directly
   }
 
   /**
@@ -110,79 +103,68 @@ public class TestServiceLauncher extends AbstractServiceLauncherTestBase {
    * used as initializers.
    */
   @Test
-  public void testBasicExceptionFormatting() throws Throwable {
-    ServiceLaunchException ex = new ServiceLaunchException(0, "%03x", 32);
-    assertExceptionContains("020", ex);
+  @Parameters({
+  "32,020",
+  "64,040",
+  "96,060",
+  "128,080",
+  "16,010"
+  })
+  public void testBasicExceptionFormatting(int argValue, String expectedText) throws Throwable {
+    ServiceLaunchException ex = new ServiceLaunchException(0, "%03x", argValue);
+    assertExceptionContains(expectedText, ex); // used parameter directly
   }
 
   @Test
-  public void testNotEnoughArgsExceptionFormatting() throws Throwable {
-    ServiceLaunchException ex = new ServiceLaunchException(0, "%03x");
-    assertExceptionContains("%03x", ex);
+  @Parameters({
+  "%03x",
+  "%04x",
+  "%12x",
+  "%03y",
+  "@03y",
+  "@@@",
+  "format",
+  "213",
+  ""
+  })
+  public void testNotEnoughArgsExceptionFormatting(String format) throws Throwable {
+    ServiceLaunchException ex = new ServiceLaunchException(0, format);
+    assertExceptionContains(format, ex); // used parameter directly
+  }
+
+  private Object[] valueSetForCause() {
+    return new Object[] {
+                new Object[] {"cause"},
+                new Object[] {""},
+                new Object[] {"   "},
+                new Object[] {"!@#$%^&*()"},
+                new Object[] {"123@abc"},
+                new Object[] {"abc@123"},
+    };
   }
 
   @Test
-  public void testInnerCause() throws Throwable {
+  @Parameters(method = "valueSetForCause")
+  public void testInnerCause(String causeStr) throws Throwable {
 
-    Exception cause = new Exception("cause");
+    Exception cause = new Exception(causeStr);
     ServiceLaunchException ex =
         new ServiceLaunchException(0, "%03x: %s", 32, cause);
     assertExceptionContains("020", ex);
-    assertExceptionContains("cause", ex);
+    assertExceptionContains(causeStr, ex); // used parameter directly
     assertSame(cause, ex.getCause());
   }
 
   @Test
-  public void testInnerCauseNotInFormat() throws Throwable {
-
-    Exception cause = new Exception("cause");
+  @Parameters(method = "valueSetForCause")
+  public void testInnerCauseNotInFormat(String causeStr) throws Throwable {
+    Assume.assumeTrue(causeStr != "");
+    Exception cause = new Exception(causeStr);
     ServiceLaunchException ex =
         new ServiceLaunchException(0, "%03x:", 32, cause);
     assertExceptionContains("020", ex);
-    assertFalse(ex.getMessage().contains("cause"));
+    assertFalse(ex.getMessage().contains(causeStr)); // used parameter directly
     assertSame(cause, ex.getCause());
-  }
-
-  @Test
-  public void testServiceInitInConstructor() throws Throwable {
-    assertRuns(InitInConstructorLaunchableService.NAME);
-  }
-
-  @Test
-  public void testRunNoArgsAllowedService() throws Throwable {
-    assertRuns(NoArgsAllowedService.NAME);
-  }
-
-  @Test
-  public void testNoArgsOneArg() throws Throwable {
-    assertLaunchOutcome(EXIT_COMMAND_ARGUMENT_ERROR, "1",
-        NoArgsAllowedService.NAME, "one");
-  }
-
-  @Test
-  public void testNoArgsHasConfsStripped() throws Throwable {
-    assertRuns(
-        NoArgsAllowedService.NAME,
-        LauncherArguments.ARG_CONF_PREFIXED,
-        configFile(newConf()));
-  }
-
-  @Test
-  public void testRunLaunchableService() throws Throwable {
-    assertRuns(LaunchableRunningService.NAME);
-  }
-
-  @Test
-  public void testArgBinding() throws Throwable {
-    assertLaunchOutcome(EXIT_OTHER_FAILURE,
-        "",
-        LaunchableRunningService.NAME,
-        LaunchableRunningService.ARG_FAILING);
-  }
-
-  @Test
-  public void testStoppingInStartLaunchableService() throws Throwable {
-    assertRuns(StoppingInStartLaunchableService.NAME);
   }
 
   @Test
@@ -200,8 +182,18 @@ public class TestServiceLauncher extends AbstractServiceLauncherTestBase {
   }
 
   @Test
-  public void testFailingHookCaught() throws Throwable {
-    BreakableService service = new BreakableService(false, false, true);
+  @Parameters({
+  "false, false, true",
+  "false, false, false",
+  "false, true, true",
+  "false, true, false",
+  "true, false, true",
+  "true, false, false",
+  "true, true, true",
+  "true, true, false",
+  })
+  public void testFailingHookCaught(boolean failOnInit, boolean failOnStart, boolean failOnStop) throws Throwable {
+    BreakableService service = new BreakableService(failOnInit, failOnStart, failOnStop);
     setServiceToTeardown(service);
     ServiceShutdownHook hook = new ServiceShutdownHook(service);
     hook.run();

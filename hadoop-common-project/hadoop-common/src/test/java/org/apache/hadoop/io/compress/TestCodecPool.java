@@ -25,13 +25,18 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.apache.hadoop.conf.Configuration;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.HashSet;
 import java.util.Set;
 
+@RunWith(JUnitParamsRunner.class)
 public class TestCodecPool {
   private final String LEASE_COUNT_ERR =
       "Incorrect number of leased (de)compressors";
@@ -44,68 +49,92 @@ public class TestCodecPool {
   }
 
   @Test(timeout = 10000)
-  public void testCompressorPoolCounts() {
-    // Get two compressors and return them
-    Compressor comp1 = CodecPool.getCompressor(codec);
-    Compressor comp2 = CodecPool.getCompressor(codec);
-    assertEquals(LEASE_COUNT_ERR, 2,
-        CodecPool.getLeasedCompressorsCount(codec));
+  @Parameters({
+    "2, 2",
+    "3, -5",
+    "0, 0",
+    "-1, -1",
+    "150, -2"})
+  public void testCompressorPoolCountsAndCompressorNotReturnSameInstance(int compressorCount,
+                                                                            int checkGetCompressorWhenEmptyCount) {
+    // Get #compressorCount compressors and return them
+    Set<Compressor> compressors = new HashSet<>();
+    for (int i = 0; i < compressorCount; i++) {
+        compressors.add(CodecPool.getCompressor(codec));
+        assertEquals(LEASE_COUNT_ERR, i + 1,
+            CodecPool.getLeasedCompressorsCount(codec)); // some manipulation of parameter
+    }
+    assertEquals(Math.max(compressorCount, 0), compressors.size()); // formula
 
-    CodecPool.returnCompressor(comp2);
-    assertEquals(LEASE_COUNT_ERR, 1,
-        CodecPool.getLeasedCompressorsCount(codec));
+    int i = 0;
+    for (Compressor compressor : compressors) {
+        CodecPool.returnCompressor(compressor);
+        assertEquals(LEASE_COUNT_ERR, compressorCount - i - 1, // some manipulation of parameter
+            CodecPool.getLeasedCompressorsCount(codec));
+        i++;
+    }
 
-    CodecPool.returnCompressor(comp1);
-    assertEquals(LEASE_COUNT_ERR, 0,
-        CodecPool.getLeasedCompressorsCount(codec));
-
-    CodecPool.returnCompressor(comp1);
-    assertEquals(LEASE_COUNT_ERR, 0,
-        CodecPool.getLeasedCompressorsCount(codec));
-  }
-
-  @Test(timeout = 10000)
-  public void testCompressorNotReturnSameInstance() {
     Compressor comp = CodecPool.getCompressor(codec);
     CodecPool.returnCompressor(comp);
-    CodecPool.returnCompressor(comp);
-    Set<Compressor> compressors = new HashSet<>();
-    for (int i = 0; i < 10; ++i) {
-      compressors.add(CodecPool.getCompressor(codec));
-    }
-    assertEquals(10, compressors.size());
-    for (Compressor compressor : compressors) {
-      CodecPool.returnCompressor(compressor);
+    for (i = 0; i < checkGetCompressorWhenEmptyCount - 1; i++) {
+        CodecPool.returnCompressor(comp);
+        assertEquals(LEASE_COUNT_ERR, 0,
+            CodecPool.getLeasedCompressorsCount(codec));
     }
   }
 
   @Test(timeout = 10000)
-  public void testDecompressorPoolCounts() {
-    // Get two decompressors and return them
-    Decompressor decomp1 = CodecPool.getDecompressor(codec);
-    Decompressor decomp2 = CodecPool.getDecompressor(codec);
-    assertEquals(LEASE_COUNT_ERR, 2,
-        CodecPool.getLeasedDecompressorsCount(codec));
+  @Parameters({
+    "2, 2",
+    "3, -5",
+    "0, 0",
+    "-1, -1",
+    "150, -2"})
+  public void testDecompressorPoolCountsAndNotReturnSameInstance(int decompressorCount,
+                                                                    int checkGetDecompressorWhenEmptyCount) {
+    // Get #decompressorCount decompressors and return them
+    Set<Decompressor> decompressors = new HashSet<>();
+    for (int i = 0; i < decompressorCount; i++) {
+        decompressors.add(CodecPool.getDecompressor(codec));
+        assertEquals(LEASE_COUNT_ERR, i + 1,
+            CodecPool.getLeasedDecompressorsCount(codec)); // some manipulation of parameter
+    }
+    assertEquals(Math.max(decompressorCount, 0), decompressors.size());  // formula
 
-    CodecPool.returnDecompressor(decomp2);
-    assertEquals(LEASE_COUNT_ERR, 1,
-        CodecPool.getLeasedDecompressorsCount(codec));
+    int i = 0;
+    for (Decompressor decompressor : decompressors) {
+        CodecPool.returnDecompressor(decompressor);
+        assertEquals(LEASE_COUNT_ERR, decompressorCount - i - 1, // some manipulation of parameter
+            CodecPool.getLeasedDecompressorsCount(codec));
+        i++;
+    }
 
-    CodecPool.returnDecompressor(decomp1);
-    assertEquals(LEASE_COUNT_ERR, 0,
-        CodecPool.getLeasedDecompressorsCount(codec));
-
-    CodecPool.returnDecompressor(decomp1);
-    assertEquals(LEASE_COUNT_ERR, 0,
-        CodecPool.getLeasedCompressorsCount(codec));
+    Decompressor decomp = CodecPool.getDecompressor(codec);
+    CodecPool.returnDecompressor(decomp);
+    for (i = 0; i < checkGetDecompressorWhenEmptyCount - 1; i++) {
+        CodecPool.returnDecompressor(decomp);
+        assertEquals(LEASE_COUNT_ERR, 0,
+            CodecPool.getLeasedDecompressorsCount(codec));
+    }
   }
 
   @Test(timeout = 10000)
-  public void testMultiThreadedCompressorPool() throws InterruptedException {
-    final int iterations = 4;
-    ExecutorService threadpool = Executors.newFixedThreadPool(3);
+  @Parameters({
+    "4, 3",
+    "10, 1",
+    "10, 2",
+    "1, 10",
+    "1, 1",
+    "-3, -6",
+    "0, 0",
+    "1, 0",
+    "5, -2",
+    "1, 2" })
+  public void testMultiThreadedCompressorPool(int iterations, int nThreads) throws InterruptedException {
+    Assume.assumeTrue(nThreads > 1 && iterations > 0);
+    ExecutorService threadpool = Executors.newFixedThreadPool(nThreads);
     final LinkedBlockingDeque<Compressor> queue = new LinkedBlockingDeque<Compressor>(
-        2 * iterations);
+        iterations);
 
     Callable<Boolean> consumer = new Callable<Boolean>() {
       @Override
@@ -138,11 +167,22 @@ public class TestCodecPool {
   }
 
   @Test(timeout = 10000)
-  public void testMultiThreadedDecompressorPool() throws InterruptedException {
-    final int iterations = 4;
-    ExecutorService threadpool = Executors.newFixedThreadPool(3);
+  @Parameters({
+    "4, 3",
+    "10, 1",
+    "10, 2",
+    "1, 10",
+    "1, 1",
+    "-3, -6",
+    "0, 0",
+    "1, 0",
+    "5, -2",
+    "1, 2" })
+  public void testMultiThreadedDecompressorPool(int iterations, int nThreads) throws InterruptedException {
+    Assume.assumeTrue(nThreads > 1 && iterations > 0);
+    ExecutorService threadpool = Executors.newFixedThreadPool(nThreads);
     final LinkedBlockingDeque<Decompressor> queue = new LinkedBlockingDeque<Decompressor>(
-        2 * iterations);
+        iterations);
 
     Callable<Boolean> consumer = new Callable<Boolean>() {
       @Override
@@ -173,20 +213,5 @@ public class TestCodecPool {
 
     assertEquals(LEASE_COUNT_ERR, 0,
         CodecPool.getLeasedDecompressorsCount(codec));
-  }
-
-  @Test(timeout = 10000)
-  public void testDecompressorNotReturnSameInstance() {
-    Decompressor decomp = CodecPool.getDecompressor(codec);
-    CodecPool.returnDecompressor(decomp);
-    CodecPool.returnDecompressor(decomp);
-    Set<Decompressor> decompressors = new HashSet<>();
-    for (int i = 0; i < 10; ++i) {
-      decompressors.add(CodecPool.getDecompressor(codec));
-    }
-    assertEquals(10, decompressors.size());
-    for (Decompressor decompressor : decompressors) {
-      CodecPool.returnDecompressor(decompressor);
-    }
   }
 }

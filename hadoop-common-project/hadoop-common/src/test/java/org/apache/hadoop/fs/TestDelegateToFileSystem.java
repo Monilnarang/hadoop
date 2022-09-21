@@ -19,11 +19,15 @@ package org.apache.hadoop.fs;
 
 import java.net.URI;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.apache.commons.net.ftp.FTP;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.Assert;
-import org.junit.Test;
+import org.junit.Assume;import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@RunWith(JUnitParamsRunner.class)
 public class TestDelegateToFileSystem {
 
   private static final String FTP_DUMMYHOST = "ftp://dummyhost";
@@ -41,12 +45,42 @@ public class TestDelegateToFileSystem {
   }
 
   @Test
-  public void testDefaultURIwithOutPort() throws Exception {
-    testDefaultUriInternal("hdfs://dummyhost");
+  @Parameters({
+  "hdfs://dummyhost",
+  "",
+  "    ",
+  "hdfs://someText@123",
+  "hdfs://someText",
+  "http://localhost",
+  "http://local host",
+  "abcd.//",
+  "abcdaa/",
+  "abcdaaa",
+  "a",
+  })
+  public void testDefaultURIwithOutPort(String defaultUri) throws Exception {
+    Assume.assumeTrue(!defaultUri.contains(" ") && !defaultUri.isEmpty());
+    testDefaultUriInternal(defaultUri);
   }
 
   @Test
-  public void testDefaultURIwithPort() throws Exception {
-    testDefaultUriInternal("hdfs://dummyhost:8020");
+  @Parameters({
+  "hdfs://dummyhost:8020",
+  "",
+  "    ",
+  "8020",
+  "8080",
+  "hdfs://someText@123:123",
+  "hdfs://someText:12312",
+  "http://localhost:8080",
+  "http://local host:9090",
+  "abcd.//:2012",
+  "abcdaa/:123",
+  "abcdaaa:6666",
+  "a",
+  })
+  public void testDefaultURIwithPort(String defaultUri) throws Exception {
+    Assume.assumeTrue(!defaultUri.contains(" ") && !defaultUri.isEmpty());
+    testDefaultUriInternal(defaultUri);
   }
 }

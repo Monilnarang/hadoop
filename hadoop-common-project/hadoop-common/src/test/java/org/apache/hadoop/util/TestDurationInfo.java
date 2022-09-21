@@ -17,44 +17,63 @@
  */
 package org.apache.hadoop.util;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * The class to test DurationInfo.
  */
+@RunWith(JUnitParamsRunner.class)
 public class TestDurationInfo {
   private final Logger log = LoggerFactory.getLogger(TestDurationInfo.class);
 
-  @Test
-  public void testDurationInfoCreation() throws Exception {
+  @Test(timeout = 10540)
+  @Parameters({
+  "1000, true",
+  "200, false",
+  "99999999, false",
+  "0, true",
+  "-1, true",
+  "-1000, false"
+  })
+  public void testDurationInfoCreation(long sleepTime, boolean logAtInfo) throws Exception {
+    Assume.assumeTrue(sleepTime > 0 && sleepTime < 10000);
     DurationInfo info = new DurationInfo(log, "test");
-    Assert.assertTrue(info.value() >= 0);
-    Thread.sleep(1000);
+    Assert.assertTrue(info.value() == 0); // some manipulation of parameter - corrected >= -> ==
+    Thread.sleep(sleepTime);
     info.finished();
     Assert.assertTrue(info.value() > 0);
 
-    info = new DurationInfo(log, true, "test format %s", "value");
-    Assert.assertEquals("test format value: duration 0:00.000s",
-        info.toString());
-
-    info = new DurationInfo(log, false, "test format %s", "value");
+    info = new DurationInfo(log, logAtInfo, "test format %s", "value");
     Assert.assertEquals("test format value: duration 0:00.000s",
         info.toString());
   }
 
-  @Test
-  public void testDurationInfoWithMultipleClose() throws Exception {
+  @Test(timeout = 10540)
+  @Parameters({
+  "2, 1000",
+  "10, 200",
+  "1, 0",
+  "-1, -1",
+  "2, 9999999"
+  })
+  public void testDurationInfoWithMultipleClose(int countClose, long sleepTime) throws Exception {
+    Assume.assumeTrue(countClose >= 1 && sleepTime > 0 && sleepTime < 10000);
     DurationInfo info = new DurationInfo(log, "test");
-    Thread.sleep(1000);
-    info.close();
-    info.close();
+    Thread.sleep(sleepTime);
+    for (int i = 0; i < countClose; i++) {
+        info.close();
+    }
     Assert.assertTrue(info.value() > 0);
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test(expected = NullPointerException.class) // couldn't parameterize
   public void testDurationInfoCreationWithNullMsg() {
     DurationInfo info = new DurationInfo(log, null);
     info.close();

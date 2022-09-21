@@ -22,18 +22,46 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Random;
 
+import org.junit.Assume;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import static org.junit.Assert.*;
 
+@RunWith(Parameterized.class)
 public class TestDataByteBuffers {
 
-  private static final Random RAND = new Random(31L);
+  @Parameterized.Parameter(0)
+  public static long seed;
+
+  @Parameterized.Parameter(1)
+  public int iter;
+
+  @Parameterized.Parameter(2)
+  public static int intBound;
+
+  private static final Random RAND = new Random(seed);
+
+  @Parameterized.Parameters
+  public static Collection<Object> testData() {
+    Object[][] data = new Object[][] { {31L, 1000, 1024},
+                                       {100L, 100, 100009},
+                                       {1L, 10000, Integer.MAX_VALUE},
+                                       {17, -200, Integer.MIN_VALUE},
+                                       {-19, 20, -57},
+                                       {0, 1500, 3000},
+                                       {Long.MAX_VALUE, Integer.MAX_VALUE, 0},
+    };
+    return Arrays.asList(data);
+  }
 
   private static void readJunk(DataInput in, int iter)
       throws IOException {
-    RAND.setSeed(31L);
+    RAND.setSeed(seed);
     for (int i = 0; i < iter; ++i) {
       switch (RAND.nextInt(7)) {
       case 0:
@@ -53,7 +81,7 @@ public class TestDataByteBuffers {
             Float.floatToIntBits(in.readFloat()));
         break;
       case 6:
-        int len = RAND.nextInt(1024);
+        int len = RAND.nextInt(intBound);
         byte[] vb = new byte[len];
         RAND.nextBytes(vb);
         byte[] b = new byte[len];
@@ -68,7 +96,7 @@ public class TestDataByteBuffers {
 
   private static void writeJunk(DataOutput out, int iter)
       throws IOException {
-    RAND.setSeed(31L);
+    RAND.setSeed(seed);
     for (int i = 0; i < iter; ++i) {
       switch (RAND.nextInt(7)) {
       case 0:
@@ -84,7 +112,7 @@ public class TestDataByteBuffers {
       case 5:
         out.writeFloat(RAND.nextFloat()); break;
       case 6:
-        byte[] b = new byte[RAND.nextInt(1024)];
+        byte[] b = new byte[RAND.nextInt(intBound)];
         RAND.nextBytes(b);
         out.write(b);
         break;
@@ -96,27 +124,31 @@ public class TestDataByteBuffers {
 
   @Test
   public void testBaseBuffers() throws IOException {
+    Assume.assumeTrue(iter <= 1000 * 1000);
+    Assume.assumeTrue(intBound > 0 && intBound <= 1024 * 1024);
     DataOutputBuffer dob = new DataOutputBuffer();
-    writeJunk(dob, 1000);
+    writeJunk(dob, iter);
     DataInputBuffer dib = new DataInputBuffer();
     dib.reset(dob.getData(), 0, dob.getLength());
-    readJunk(dib, 1000);
+    readJunk(dib, iter);
 
     dob.reset();
-    writeJunk(dob, 1000);
+    writeJunk(dob, iter);
     dib.reset(dob.getData(), 0, dob.getLength());
-    readJunk(dib, 1000);
+    readJunk(dib, iter);
   }
 
   @Test
   public void testDataInputByteBufferCompatibility() throws IOException {
+    Assume.assumeTrue(iter <= 1000 * 1000);
+    Assume.assumeTrue(intBound > 0 && intBound <= 1024 * 1024);
     DataOutputBuffer dob = new DataOutputBuffer();
-    writeJunk(dob, 1000);
+    writeJunk(dob, iter);
     ByteBuffer buf = ByteBuffer.wrap(dob.getData(), 0, dob.getLength());
 
     DataInputByteBuffer dib = new DataInputByteBuffer();
     dib.reset(buf);
-    readJunk(dib, 1000);
+    readJunk(dib, iter);
   }
 
 }

@@ -18,15 +18,20 @@
 
 package org.apache.hadoop.service.launcher;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.apache.hadoop.service.launcher.testservices.FailInConstructorService;
 import org.apache.hadoop.service.launcher.testservices.FailInInitService;
 import org.apache.hadoop.service.launcher.testservices.FailInStartService;
 import org.apache.hadoop.service.launcher.testservices.FailingStopInStartService;
+import org.junit.Assume;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Explore the ways in which the launcher is expected to (safely) fail.
  */
+@RunWith(JUnitParamsRunner.class)
 public class TestServiceLauncherCreationFailures extends
     AbstractServiceLauncherTestBase {
 
@@ -42,37 +47,41 @@ public class TestServiceLauncherCreationFailures extends
     }
   }
 
-  @Test
-  public void testUnknownClass() throws Throwable {
-    assertServiceCreationFails("no.such.classname");
+  private Object[] valueSetForServiceCreationFails() {
+    return new Object[] {
+                // Old Test 2 :- testUnknownClass
+                new Object[] {"no.such.classname"},
+                // Old Test 3 :- testNotAService
+                new Object[] {SELF},
+                // Old Test 4 :- testNoSimpleConstructor
+                new Object[] {"org.apache.hadoop.service.launcher.FailureTestService"},
+                // Old Test 5 :- testFailInConstructor
+                new Object[] {FailInConstructorService.NAME},
+    };
   }
 
   @Test
-  public void testNotAService() throws Throwable {
-    assertServiceCreationFails(SELF);
+  @Parameters(method = "valueSetForServiceCreationFails")
+  public void testServiceCreationFails(String classname) throws Throwable {
+    assertServiceCreationFails(classname); // used parameter directly
+  }
+
+  private Object[] valueSetForLaunchOutComes() {
+    return new Object[] {
+                // Old Test 6 :- testFailInInit
+                new Object[] {FailInInitService.EXIT_CODE, FailInInitService.NAME},
+                // Old Test 7 :- testFailInStart
+                new Object[] {FailInStartService.EXIT_CODE, FailInStartService.NAME},
+                // new
+                new Object[] {FailingStopInStartService.EXIT_CODE, FailingStopInStartService.NAME},
+    };
   }
 
   @Test
-  public void testNoSimpleConstructor() throws Throwable {
-    assertServiceCreationFails(
-        "org.apache.hadoop.service.launcher.FailureTestService");
-  }
-
-  @Test
-  public void testFailInConstructor() throws Throwable {
-    assertServiceCreationFails(FailInConstructorService.NAME);
-  }
-
-  @Test
-  public void testFailInInit() throws Throwable {
-    assertLaunchOutcome(FailInInitService.EXIT_CODE, "",
-        FailInInitService.NAME);
-  }
-
-  @Test
-  public void testFailInStart() throws Throwable {
-    assertLaunchOutcome(FailInStartService.EXIT_CODE, "",
-        FailInStartService.NAME);
+  @Parameters(method = "valueSetForLaunchOutComes")
+  public void testFailInInit(int exitCode, String name) throws Throwable {
+    Assume.assumeTrue(exitCode == -1 || exitCode == -2);
+    assertLaunchOutcome(exitCode, "", name); // used parameter directly
   }
 
   @Test
