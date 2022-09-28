@@ -62,6 +62,12 @@ public class TestKeyProvider {
     } catch (IOException e) {
       assertTrue(true);
     }
+    try {
+      KeyProvider.getBaseName(null);
+      assertTrue("should have thrown an IOException", false);
+    } catch (IOException e) {
+      assertTrue(true);
+    }
   }
 
   @Test
