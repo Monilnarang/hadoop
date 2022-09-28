@@ -108,7 +108,6 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 /** Unit tests for RPC. */
-// Potential Bug #2 -> All tests won't run with error -> conf is not set
 @SuppressWarnings("deprecation")
 @RunWith(Parameterized.class)
 public class TestRPC extends TestRpcBase {
@@ -363,6 +362,7 @@ public class TestRPC extends TestRpcBase {
               { 999, 99999 , 5},
 //                                       { 0, 5 , 1}, // fails -> java.lang.IllegalArgumentException
 //                                       { 1, -1 , 1} // fails -> java.lang.IllegalArgumentException
+// todo add assumes for above
       };
 
       return Arrays.asList(data);
@@ -721,8 +721,7 @@ public class TestRPC extends TestRpcBase {
     assertEquals(numberOfStopProxy, invocationHandler.getCloseCalled());
   }
 
-  // Potential Bug #3 :- test failure  -> java.lang.ClassCastException: org.apache.hadoop.ipc.WritableRpcEngine$Invoker
-  // cannot be cast to org.apache.hadoop.ipc.TestRPC$StoppedInvocationHandler
+  // PUTs #31
   @Test
   public void testWrappedStopProxy() throws IOException {
     StoppedProtocol wrappedProxy = RPC.getProxy(StoppedProtocol.class,
@@ -733,9 +732,10 @@ public class TestRPC extends TestRpcBase {
     StoppedProtocol proxy = (StoppedProtocol) RetryProxy.create(
         StoppedProtocol.class, wrappedProxy, RetryPolicies.RETRY_FOREVER);
 
-    assertEquals(0, invocationHandler.getCloseCalled());
-    RPC.stopProxy(proxy);
-    assertEquals(1, invocationHandler.getCloseCalled());
+    for(int i=0;i<numberOfStopProxy;i++) {
+              RPC.stopProxy(proxy);
+            }
+    assertEquals(numberOfStopProxy, invocationHandler.getCloseCalled());
   }
 
   @Test
@@ -795,6 +795,7 @@ public class TestRPC extends TestRpcBase {
   /**
    * Test that server.stop() properly stops all threads
    */
+   // todo Fix, find a way to remove threadsBefore for multiple test executions
   @Test
   public void testStopsAllThreads() throws IOException, InterruptedException {
     Server server;
