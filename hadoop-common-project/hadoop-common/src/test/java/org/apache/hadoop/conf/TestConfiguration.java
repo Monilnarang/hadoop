@@ -48,14 +48,12 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import static java.util.concurrent.TimeUnit.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.assertj.core.api.Assertions;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
 
 import static org.apache.hadoop.conf.StorageUnit.BYTES;
 import static org.apache.hadoop.conf.StorageUnit.GB;
@@ -79,6 +77,14 @@ import static org.apache.hadoop.util.PlatformName.IBM_JAVA;
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Logger;
 import org.apache.log4j.spi.LoggingEvent;
+import org.junit.Assume;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 public class TestConfiguration {
@@ -110,12 +116,12 @@ public class TestConfiguration {
 
   private BufferedWriter out;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     conf = new Configuration();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     if(out != null) {
       out.close();
@@ -1252,126 +1258,204 @@ public class TestConfiguration {
     }
   }
 
-  @Test
-  public void testIntegerValues() throws IOException{
+  private static Stream<Arguments> valuesSetsForTestIntegerValues() {
+      return Stream.of(
+          Arguments.of("test.int1", "test.int2", "test.int3" , "20", "-20", " -20xyz "),
+          Arguments.of("testkey@1", "123456", "key*3" , "020", " -20 ", " -2 0 "),
+          Arguments.of("test int1", "testRandomKey##1", "!@#$%^*()" , "020", " -0120  ", " -0 1 2 0  "),
+          Arguments.of(" asd ", null, "asd1" , "020", " -0120  ", " -0 1 2 0  "),
+          Arguments.of("", "test int1", "123456" , "78", "01", "5678"),
+          Arguments.of("test 1234", "     ", "   " , "8", "00", "0")
+      );
+    }
+  // PUTs #41
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestIntegerValues")
+  public void testIntegerValues(String testIntKey1,
+                                String testIntKey2,
+                                String testIntKey3,
+                                String testIntValue1,
+                                String testIntValue2,
+                                String testIntBadValue1) throws IOException{
     out=new BufferedWriter(new FileWriter(CONFIG));
     startConfig();
-    appendProperty("test.int1", "20");
-    appendProperty("test.int2", "020");
-    appendProperty("test.int3", "-20");
-    appendProperty("test.int4", " -20 ");
-    appendProperty("test.int5", " -20xyz ");
+    Assume.assumeFalse(StringUtils.isBlank(testIntKey1) || StringUtils.isBlank(testIntKey2)
+                    || StringUtils.isBlank(testIntKey3) || StringUtils.isBlank(testIntValue1)
+                    || StringUtils.isBlank(testIntValue2) || StringUtils.isBlank(testIntBadValue1));
+    appendProperty(testIntKey1, testIntValue1);
+    appendProperty(testIntKey2, testIntValue2);
+    appendProperty(testIntKey3, testIntBadValue1);
     endConfig();
     Path fileResource = new Path(CONFIG);
     conf.addResource(fileResource);
-    assertEquals(20, conf.getInt("test.int1", 0));
-    assertEquals(20, conf.getLong("test.int1", 0));
-    assertEquals(20, conf.getLongBytes("test.int1", 0));
-    assertEquals(20, conf.getInt("test.int2", 0));
-    assertEquals(20, conf.getLong("test.int2", 0));
-    assertEquals(20, conf.getLongBytes("test.int2", 0));
-    assertEquals(-20, conf.getInt("test.int3", 0));
-    assertEquals(-20, conf.getLong("test.int3", 0));
-    assertEquals(-20, conf.getLongBytes("test.int3", 0));
-    assertEquals(-20, conf.getInt("test.int4", 0));
-    assertEquals(-20, conf.getLong("test.int4", 0));
-    assertEquals(-20, conf.getLongBytes("test.int4", 0));
+    assertEquals(Integer.parseInt(testIntValue1.trim()), conf.getInt(testIntKey1, 0)); // formula
+    assertEquals(Long.parseLong(testIntValue1.trim()), conf.getLong(testIntKey1, 0)); // formula
+    assertEquals(Long.parseLong(testIntValue1.trim()), conf.getLongBytes(testIntKey1, 0)); // formula
+    assertEquals(Integer.parseInt(testIntValue2.trim()), conf.getInt(testIntKey2, 0)); // formula
+    assertEquals(Long.parseLong(testIntValue2.trim()), conf.getLong(testIntKey2, 0)); // formula
+    assertEquals(Long.parseLong(testIntValue2.trim()), conf.getLongBytes(testIntKey2, 0)); // formula
     try {
-      conf.getInt("test.int5", 0);
+      conf.getInt(testIntKey3, 0);
       fail("Property had invalid int value, but was read successfully.");
     } catch (NumberFormatException e) {
       // pass
     }
   }
 
-  @Test
-  public void testHumanReadableValues() throws IOException {
+  private static Stream<Arguments> valuesSetsForTestHumanReadableValues() {
+      return Stream.of(
+          Arguments.of("test.humanReadableValue1", "1m", "test.humanReadableValue5" , "1MBCDE"),
+          Arguments.of("humanReadableValue1", "1M", "test.human@55" , "1EE"),
+          Arguments.of("test%Key", "1g", "55" , "1kmgtpe"),
+          Arguments.of("test@Key", "700p ", "KeyTEST#" , "67gt"),
+          Arguments.of("", "1m", "55" , "1kmgtpe"),
+          Arguments.of(null, "700p ", "KGHJ#" , "67gt"),
+          Arguments.of("      ", "1m", " " , "1kmgtpe"),
+          Arguments.of("test@Key", null, "KeyTEST#" , ""),
+          Arguments.of("test@Key", "16m", "KeyTEST#" , ""),
+          Arguments.of("test@Key", "8m", "KeyTEST#" , null)
+      );
+    }
+  // PUTs #50
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestHumanReadableValues")
+  public void testHumanReadableValues(String name1,
+                                      String value,
+                                      String name2,
+                                      String incorrectValue) throws IOException {
     out = new BufferedWriter(new FileWriter(CONFIG));
+    Assume.assumeFalse(StringUtils.isBlank(name1) || StringUtils.isBlank(name2) || StringUtils.isBlank(value)
+                    || StringUtils.isBlank(incorrectValue));
     startConfig();
-    appendProperty("test.humanReadableValue1", "1m");
-    appendProperty("test.humanReadableValue2", "1M");
-    appendProperty("test.humanReadableValue5", "1MBCDE");
+    appendProperty(name1, value);
+    appendProperty(name2, incorrectValue);
 
     endConfig();
     Path fileResource = new Path(CONFIG);
     conf.addResource(fileResource);
-    assertEquals(1048576, conf.getLongBytes("test.humanReadableValue1", 0));
-    assertEquals(1048576, conf.getLongBytes("test.humanReadableValue2", 0));
+    assertEquals(org.apache.hadoop.util.StringUtils.TraditionalBinaryPrefix.string2long(value),
+                    conf.getLongBytes(name1, 0)); // formula
     try {
-      conf.getLongBytes("test.humanReadableValue5", 0);
+      conf.getLongBytes(name2, 0);
       fail("Property had invalid human readable value, but was read successfully.");
     } catch (NumberFormatException e) {
       // pass
     }
   }
 
-  @Test
-  public void testBooleanValues() throws IOException {
+  private static Stream<Arguments> valuesSetsForTestBooleanValues() {
+        return Stream.of(
+            Arguments.of("test.bool1", "test.bool2" , "true", "false"),
+            Arguments.of("test.bool4", "test.bool5" , " foo ", " t r u e "),
+            Arguments.of("test.k1", "Key3" , "", " FalSE "),
+            Arguments.of("test.k1", "testKEY2", " TRUE ", " FALSE "),
+            Arguments.of(null, "   " , "", " FalSE "),
+            Arguments.of(" ", null, " TRUE ", " FALSE "),
+            Arguments.of("test.k1.8", "Key9" , "teeto", " FalSE ")
+        );
+      }
+  // PUTs #42
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestBooleanValues")
+  public void testBooleanValues(String testBoolKey1,
+                                String testBoolKey2,
+                                String testBoolValue1,
+                                String testBoolValue2) throws IOException {
     out=new BufferedWriter(new FileWriter(CONFIG));
     startConfig();
-    appendProperty("test.bool1", "true");
-    appendProperty("test.bool2", "false");
-    appendProperty("test.bool3", "  true ");
-    appendProperty("test.bool4", " false ");
-    appendProperty("test.bool5", "foo");
-    appendProperty("test.bool6", "TRUE");
-    appendProperty("test.bool7", "FALSE");
-    appendProperty("test.bool8", "");
+    Assume.assumeFalse(StringUtils.isBlank(testBoolKey1) || StringUtils.isBlank(testBoolKey2)
+                    || StringUtils.isBlank(testBoolValue1) || StringUtils.isBlank(testBoolValue2));
+    testBoolValue1 = testBoolValue1.replaceAll("\\s+",""); // removing spaces from inputs
+    testBoolValue2 = testBoolValue2.replaceAll("\\s+","");
+    appendProperty(testBoolKey1, testBoolValue1);
+    appendProperty(testBoolKey2, testBoolValue2);
     endConfig();
     Path fileResource = new Path(CONFIG);
     conf.addResource(fileResource);
-    assertEquals(true, conf.getBoolean("test.bool1", false));
-    assertEquals(false, conf.getBoolean("test.bool2", true));
-    assertEquals(true, conf.getBoolean("test.bool3", false));
-    assertEquals(false, conf.getBoolean("test.bool4", true));
-    assertEquals(true, conf.getBoolean("test.bool5", true));
-    assertEquals(true, conf.getBoolean("test.bool6", false));
-    assertEquals(false, conf.getBoolean("test.bool7", true));
-    assertEquals(false, conf.getBoolean("test.bool8", false));
+    assertEquals(Boolean.parseBoolean(testBoolValue1), conf.getBoolean(testBoolKey1, false)); // formula
+    assertEquals(Boolean.parseBoolean(testBoolValue2), conf.getBoolean(testBoolKey2, true)); // formula
   }
 
-  @Test
-  public void testFloatValues() throws IOException {
+  private static Stream<Arguments> valuesSetsForTestFloatValues() {
+      return Stream.of(
+          Arguments.of("test.float1", "test.float2", "test.int3" , "3.1415", "003.1415", "xyz-3.1415xyz"),
+          Arguments.of("test.float1", "test.float4", "test.float5" , "-3.1415", " -3.1415 ", " avc-2s0 "),
+          Arguments.of("test#float1", "test@float", "test*float5" , "1.459f",  "1.5434565678" , " f "),
+          Arguments.of("test.float1", "testRandomKey", "testInt3aasd" , "14",  "- 2 0 .   ", " 14.14.14.14"),
+          Arguments.of("", "   ", null , "",  "   ", null)
+
+      );
+    }
+  // PUTs #51
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestFloatValues")
+  public void testFloatValues(String testFloatKey1,
+                              String testFloatKey2,
+                              String testFloatKey3,
+                              String testFloatValue1,
+                              String testFloatValue2,
+                              String testFloatBadValue1) throws IOException {
     out=new BufferedWriter(new FileWriter(CONFIG));
+    Assume.assumeFalse(StringUtils.isBlank(testFloatKey1) || StringUtils.isBlank(testFloatKey2)
+                    || StringUtils.isBlank(testFloatKey3) || StringUtils.isBlank(testFloatValue1)
+                    || StringUtils.isBlank(testFloatValue2) || StringUtils.isBlank(testFloatBadValue1));
     startConfig();
-    appendProperty("test.float1", "3.1415");
-    appendProperty("test.float2", "003.1415");
-    appendProperty("test.float3", "-3.1415");
-    appendProperty("test.float4", " -3.1415 ");
-    appendProperty("test.float5", "xyz-3.1415xyz");
+    testFloatValue1 = testFloatValue1.replaceAll("\\s+",""); // removing spaces from inputs
+    testFloatValue2 = testFloatValue2.replaceAll("\\s+","");
+    testFloatBadValue1 = testFloatBadValue1.replaceAll("\\s+","");
+    appendProperty(testFloatKey1, testFloatValue1);
+    appendProperty(testFloatKey2, testFloatValue2);
+    appendProperty(testFloatKey3, testFloatBadValue1);
     endConfig();
     Path fileResource = new Path(CONFIG);
     conf.addResource(fileResource);
-    assertEquals(3.1415f, conf.getFloat("test.float1", 0.0f), DOUBLE_DELTA);
-    assertEquals(3.1415f, conf.getFloat("test.float2", 0.0f), DOUBLE_DELTA);
-    assertEquals(-3.1415f, conf.getFloat("test.float3", 0.0f), DOUBLE_DELTA);
-    assertEquals(-3.1415f, conf.getFloat("test.float4", 0.0f), DOUBLE_DELTA);
+    assertEquals(Float.parseFloat(testFloatValue1), conf.getFloat(testFloatKey1, 0.0f), DOUBLE_DELTA); // formula
+    assertEquals(Float.parseFloat(testFloatValue2), conf.getFloat(testFloatKey2, 0.0f), DOUBLE_DELTA); // formula
     try {
-      conf.getFloat("test.float5", 0.0f);
+      conf.getFloat(testFloatKey3, 0.0f);
       fail("Property had invalid float value, but was read successfully.");
     } catch (NumberFormatException e) {
       // pass
     }
   }
 
-  @Test
-  public void testDoubleValues() throws IOException {
+  private static Stream<Arguments> valuesSetsForTestDoubleValues() {
+      return Stream.of(
+            Arguments.of("test.double1", "test.double2", "test.double3" , "3.1415", "003.1415", "xyz-3.1415xyz"),
+            Arguments.of("test.double3", "test.double4", "test.double5" , "-3.1415", " -3.1 415 ", " avc.2s0 "),
+            Arguments.of("DoubleASD", "DD@ @DD", "test.double5" , "9 87.90 D", " -3.1415 ", " D "),
+            Arguments.of("testDouble3", "testRandomKey", "testDouble354" , "0 2  2 0.", " - 2 0 9 . 0 1 ", " 0  - 2 0 "),
+            Arguments.of("", "   ", null , "",  "   ", null)
+        );
+      }
+
+  // PUTs #43
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestDoubleValues")
+  public void testDoubleValues(String testDoubleKey1,
+                               String testDoubleKey2,
+                               String testDoubleKey3,
+                               String testDoubleValue1,
+                               String testDoubleValue2,
+                               String testDoubleBadValue1) throws IOException {
     out=new BufferedWriter(new FileWriter(CONFIG));
+    Assume.assumeFalse(StringUtils.isBlank(testDoubleKey1) || StringUtils.isBlank(testDoubleKey2)
+                    || StringUtils.isBlank(testDoubleKey3) || StringUtils.isBlank(testDoubleValue1)
+                    || StringUtils.isBlank(testDoubleValue2) || StringUtils.isBlank(testDoubleBadValue1));
     startConfig();
-    appendProperty("test.double1", "3.1415");
-    appendProperty("test.double2", "003.1415");
-    appendProperty("test.double3", "-3.1415");
-    appendProperty("test.double4", " -3.1415 ");
-    appendProperty("test.double5", "xyz-3.1415xyz");
+    testDoubleValue1 = testDoubleValue1.replaceAll("\\s+","");
+    testDoubleValue2 = testDoubleValue2.replaceAll("\\s+","");
+    testDoubleBadValue1 = testDoubleBadValue1.replaceAll("\\s+","");
+    appendProperty(testDoubleKey1, testDoubleValue1);
+    appendProperty(testDoubleKey2, testDoubleValue2);
+    appendProperty(testDoubleKey3, testDoubleBadValue1);
     endConfig();
     Path fileResource = new Path(CONFIG);
     conf.addResource(fileResource);
-    assertEquals(3.1415, conf.getDouble("test.double1", 0.0), DOUBLE_DELTA);
-    assertEquals(3.1415, conf.getDouble("test.double2", 0.0), DOUBLE_DELTA);
-    assertEquals(-3.1415, conf.getDouble("test.double3", 0.0), DOUBLE_DELTA);
-    assertEquals(-3.1415, conf.getDouble("test.double4", 0.0), DOUBLE_DELTA);
+    assertEquals(Double.parseDouble(testDoubleValue1), conf.getDouble(testDoubleKey1, 0.0), DOUBLE_DELTA); // formula
+    assertEquals(Double.parseDouble(testDoubleValue2), conf.getDouble(testDoubleKey2, 0.0), DOUBLE_DELTA); // formula
     try {
-      conf.getDouble("test.double5", 0.0);
+      conf.getDouble(testDoubleKey3, 0.0);
       fail("Property had invalid double value, but was read successfully.");
     } catch (NumberFormatException e) {
       // pass
@@ -1428,21 +1512,31 @@ public class TestConfiguration {
     strs.add("z");
   }
 
-  @Test
-  public void testGetTrimmedStringCollection() {
+  private static Stream<Arguments> valuesSetsForTestGetTrimmedStringCollection() {
+      return Stream.of(
+          Arguments.of((Object) new String[]{"a", " b", " c"}, "a, b, c"),
+          Arguments.of((Object) new String[]{"a", "b", "c"}, "a,b,c"),
+          Arguments.of((Object) new String[]{"a", " b", "c", "  d"}, "a, b,c,  d"),
+          Arguments.of((Object) new String[]{" ", ".", "#"}, " ,.,#")
+      );
+    }
+  // PUTs #52
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestGetTrimmedStringCollection")
+  public void testGetTrimmedStringCollection(String[] array, String arrayString) {
     Configuration c = new Configuration();
-    c.set("x", "a, b, c");
+    c.set("x", arrayString);
     Collection<String> strs = c.getStringCollection("x");
-    assertEquals(3, strs.size());
-    assertArrayEquals(new String[]{ "a", " b", " c" },
-        strs.toArray(new String[0]));
+    assertEquals(array.length, strs.size()); // basic manipulation of parameter
+    assertArrayEquals(array,
+        strs.toArray(new String[0])); // used local variable
 
     // Check that the result is mutable
     strs.add("z");
 
     // Make sure same is true for missing config
     strs = c.getStringCollection("does-not-exist");
-    assertEquals(0, strs.size());
+    assertEquals(0, strs.size()); // no change in assertion
     strs.add("z");
   }
 
@@ -1825,22 +1919,52 @@ public class TestConfiguration {
     assertEquals("value5", conf.get("test.key4"));
   }
 
-  @Test
-  public void testSize() {
+  private static Stream<Arguments> valuesSetsForTestSize() {
+      return Stream.of(
+          Arguments.of(1),
+          Arguments.of(0),
+          Arguments.of(4),
+          Arguments.of(17),
+          Arguments.of(-1),
+          Arguments.of(Integer.MAX_VALUE),
+          Arguments.of(Integer.MIN_VALUE)
+      );
+    }
+  // PUTs #53
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestSize")
+  public void testSize(int expectedSize) {
+    Assume.assumeTrue(expectedSize >= 0 && expectedSize < 10000);
     Configuration conf = new Configuration(false);
-    conf.set("a", "A");
-    conf.set("b", "B");
-    assertEquals(2, conf.size());
+    for (int i = 0; i < expectedSize; i++) {
+        conf.set("a" + String.valueOf(i) , "A" + String.valueOf(i)); // other manipulation
+    }
+    assertEquals(expectedSize, conf.size()); // used parameter directly
   }
 
-  @Test
-  public void testClear() {
+  private static Stream<Arguments> valuesSetsForTestClear() {
+      return Stream.of(
+          Arguments.of(0),
+          Arguments.of(1),
+          Arguments.of(4),
+          Arguments.of(17),
+          Arguments.of(-1),
+          Arguments.of(Integer.MAX_VALUE),
+          Arguments.of(Integer.MIN_VALUE)
+      );
+    }
+  // PUTs #54
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestClear")
+  public void testClear(int confSize) {
+    Assume.assumeTrue(confSize < 10000);
     Configuration conf = new Configuration(false);
-    conf.set("a", "A");
-    conf.set("b", "B");
+    for (int i = 0; i < confSize; i++) {
+            conf.set("a" + String.valueOf(i) , "A" + String.valueOf(i));
+    }
     conf.clear();
-    assertEquals(0, conf.size());
-    assertFalse(conf.iterator().hasNext());
+    assertEquals(0, conf.size()); // no change in assertion
+    assertFalse(conf.iterator().hasNext()); // no change in assertion
   }
 
   public static class Fake_ClassLoader extends ClassLoader {
@@ -2315,74 +2439,149 @@ public class TestConfiguration {
     }
   }
 
-  @Test
-  public void testBoolean() {
-    boolean value = true;
+   private static Stream<Arguments> valuesSetsForTestBoolean() {
+       return Stream.of(
+           Arguments.of(true),
+           Arguments.of(false)
+       );
+     }
+   // PUTs #55
+   @ParameterizedTest
+   @MethodSource("valuesSetsForTestBoolean")
+  public void testBoolean(boolean value) {
     Configuration configuration = new Configuration();
     configuration.setBoolean("value", value);
-    assertEquals(value, configuration.getBoolean("value", false));
+    assertEquals(value, configuration.getBoolean("value", false)); // used local variable
   }
 
-  @Test
-  public void testBooleanIfUnset() {
-    boolean value = true;
+   private static Stream<Arguments> valuesSetsForTestBooleanIfUnset() {
+       return Stream.of(
+           Arguments.of(true),
+           Arguments.of(false)
+       );
+     }
+   // PUTs #56
+   @ParameterizedTest
+   @MethodSource("valuesSetsForTestBooleanIfUnset")
+  public void testBooleanIfUnset(boolean value) {
     Configuration configuration = new Configuration();
     configuration.setBooleanIfUnset("value", value);
-    assertEquals(value, configuration.getBoolean("value", false));
+    assertEquals(value, configuration.getBoolean("value", false)); // no change in assertion
     configuration.setBooleanIfUnset("value", false);
-    assertEquals(value, configuration.getBoolean("value", false));
+    assertEquals(value, configuration.getBoolean("value", false)); // no change in assertion
   }
 
-  @Test
-  public void testFloat() {
-    float value = 1.0F;
+  private static Stream<Arguments> valuesSetsForTestFloat() {
+      return Stream.of(
+          Arguments.of(1.0F),
+          Arguments.of(2.3443F),
+          Arguments.of(Float.MAX_VALUE),
+          Arguments.of(Float.MIN_VALUE),
+          Arguments.of(232.9999999F),
+          Arguments.of(-0.00000000001F)
+      );
+  }
+   // PUTs #57
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestFloat")
+  public void testFloat(float value) {
     Configuration configuration = new Configuration();
     configuration.setFloat("value", value);
-    assertEquals(value, configuration.getFloat("value", 0.0F), DOUBLE_DELTA);
+    assertEquals(value, configuration.getFloat("value", 0.0F), DOUBLE_DELTA); // used local variable
   }
 
-  @Test
-  public void testDouble() {
-    double value = 1.0D;
+  private static Stream<Arguments> valuesSetsForTestDouble() {
+      return Stream.of(
+          Arguments.of(1.0D),
+          Arguments.of(Double.MAX_VALUE),
+          Arguments.of(Double.MIN_VALUE),
+          Arguments.of(9012373491.9999999D),
+          Arguments.of(0.00000000001D),
+          Arguments.of(-0.00000000001F)
+      );
+  }
+   // PUTs #58
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestDouble")
+  public void testDouble(double value) {
     Configuration configuration = new Configuration();
     configuration.setDouble("value", value);
-    assertEquals(value, configuration.getDouble("value", 0.0D), DOUBLE_DELTA);
+    assertEquals(value, configuration.getDouble("value", 0.0D), DOUBLE_DELTA); // used local variable
   }
 
-  @Test
-  public void testInt() {
-    int value = 1;
+  private static Stream<Arguments> valuesSetsForTestInt() {
+      return Stream.of(
+          Arguments.of(1),
+          Arguments.of(Integer.MAX_VALUE),
+          Arguments.of(Integer.MIN_VALUE),
+          Arguments.of(-912373491),
+          Arguments.of(0)
+      );
+  }
+   // PUTs #59
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestInt")
+  public void testInt(int value) {
     Configuration configuration = new Configuration();
     configuration.setInt("value", value);
-    assertEquals(value, configuration.getInt("value", 0));
+    assertEquals(value, configuration.getInt("value", 0)); // used local variable
   }
 
-  @Test
-  public void testLong() {
-    long value = 1L;
+  private static Stream<Arguments> valuesSetsForTestLong() {
+      return Stream.of(
+          Arguments.of(1),
+          Arguments.of(Long.MAX_VALUE),
+          Arguments.of(Long.MIN_VALUE),
+          Arguments.of(-999999999),
+          Arguments.of(0)
+      );
+  }
+   // PUTs #60
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestLong")
+  public void testLong(long value) {
     Configuration configuration = new Configuration();
     configuration.setLong("value", value);
-    assertEquals(value, configuration.getLong("value", 0L));
+    assertEquals(value, configuration.getLong("value", 0L)); // used local variable
   }
 
-  @Test
-  public void testStrings() {
-    String [] strings = {"FOO","BAR"};
+  private static Stream<Arguments> valuesSetsForTestStrings() {
+      return Stream.of(
+          Arguments.of((Object) new String[]{"FOO", "BAR"}),
+          Arguments.of((Object) new String[]{"FOO", "FOO1", "FOO11", "BAR0", "BAR1", "BAR22", "BAR1"}),
+          Arguments.of((Object) new String[]{"!@#$%^*()", " ", ""})
+      );
+    }
+  // PUTs #61
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestStrings")
+  public void testStrings(String [] strings) {
     Configuration configuration = new Configuration();
     configuration.setStrings("strings", strings);
     String [] returnStrings = configuration.getStrings("strings");
     for(int i=0;i<returnStrings.length;i++) {
-      assertEquals(strings[i], returnStrings[i]);
+      assertEquals(strings[i], returnStrings[i]); // no change in assertion
     }
   }
 
-  @Test
-  public void testSetPattern() {
-    Pattern testPattern = Pattern.compile("a+b");
+  private static Stream<Arguments> valuesSetsForTestSetPattern() {
+      return Stream.of(
+          Arguments.of(Pattern.compile("a+b")),
+          Arguments.of(Pattern.compile("a//*+==b")),
+          Arguments.of(Pattern.compile("a/b*c+d")),
+          Arguments.of(Pattern.compile("a / b a")),
+          Arguments.of(Pattern.compile("")),
+          Arguments.of(Pattern.compile(" "))
+      );
+  }
+   // PUTs #62
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestSetPattern")
+  public void testSetPattern(Pattern testPattern) {
     Configuration configuration = new Configuration();
     configuration.setPattern("testPattern", testPattern);
     assertEquals(testPattern.pattern(),
-        configuration.getPattern("testPattern", Pattern.compile("")).pattern());
+        configuration.getPattern("testPattern", Pattern.compile("")).pattern()); // used local variable
   }
 
   @Test

@@ -17,14 +17,20 @@
  */
 package org.apache.hadoop.util;
 
+import org.junit.Assume;
 import org.junit.Test;
 import static org.junit.Assert.*;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Arrays;
+import java.util.Collection;
 
 /**
  * A test for AsyncDiskService.
  */
+@RunWith(Parameterized.class)
 public class TestAsyncDiskService {
   
   public static final Logger LOG =
@@ -48,18 +54,27 @@ public class TestAsyncDiskService {
     }
   };
   
-  
+  @Parameterized.Parameter(value = 0)
+  public int total;
+
+  @Parameterized.Parameters
+      public static Collection<Object[]> data() {
+        Object[][] data = new Object[][] { {100}, {0}, {250}, {3}, {-1}, {Integer.MAX_VALUE}, {Integer.MIN_VALUE}
+        };
+
+        return Arrays.asList(data);
+      }
+
   /**
    * This test creates some ExampleTasks and runs them. 
    */
-  @Test
+  // PUTs #64
+  @Test(timeout = 1000)
   public void testAsyncDiskService() throws Throwable {
-  
+    Assume.assumeTrue(total >= 0 &&  total < 10000);
     String[] vols = new String[]{"/0", "/1"};
     AsyncDiskService service = new AsyncDiskService(vols);
-    
-    int total = 100;
-    
+
     for (int i = 0; i < total; i++) {
       service.execute(vols[i%2], new ExampleTask());
     }
@@ -78,6 +93,6 @@ public class TestAsyncDiskService {
       fail("AsyncDiskService didn't shutdown in 5 seconds.");
     }
     
-    assertEquals(total, count);
+    assertEquals(total, count); // used local variable
   }
 }

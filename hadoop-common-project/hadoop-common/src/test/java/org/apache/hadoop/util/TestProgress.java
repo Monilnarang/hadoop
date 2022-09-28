@@ -19,26 +19,40 @@
 package org.apache.hadoop.util;
 
 import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import java.util.stream.Stream;
 
 public class TestProgress {
-
-  @Test
-  public void testSet(){
+  private static Stream<Arguments> valuesSetsForTestSetPattern() {
+        return Stream.of(
+            Arguments.of(Float.NaN),
+            Arguments.of(Float.NEGATIVE_INFINITY),
+            Arguments.of((float)-1),
+            Arguments.of((float)1.1),
+            Arguments.of(Float.POSITIVE_INFINITY),
+            Arguments.of((float)0),
+            Arguments.of((float)0.000009),
+            Arguments.of((float)0.1),
+            Arguments.of((float)0.2),
+            Arguments.of((float)0.3),
+            Arguments.of((float)0.4),
+            Arguments.of((float)0.5),
+            Arguments.of((float)0.6),
+            Arguments.of(0.7f),
+            Arguments.of((float)0.8),
+            Arguments.of((float)0.9),
+            Arguments.of((float)1.00001),
+            Arguments.of((float)-0.000009)
+        );
+    }
+     // PUTs #70
+    @ParameterizedTest
+    @MethodSource("valuesSetsForTestSetPattern")
+  public void testSet(Float value){
     Progress progress = new Progress();
-    progress.set(Float.NaN);
-    Assert.assertEquals(0, progress.getProgress(), 0.0);
-
-    progress.set(Float.NEGATIVE_INFINITY);
-    Assert.assertEquals(0,progress.getProgress(),0.0);
-
-    progress.set(-1);
-    Assert.assertEquals(0,progress.getProgress(),0.0);
-
-    progress.set((float) 1.1);
-    Assert.assertEquals(1,progress.getProgress(),0.0);
-
-    progress.set(Float.POSITIVE_INFINITY);
-    Assert.assertEquals(1,progress.getProgress(),0.0);
+    progress.set(value);
+    Assert.assertEquals(value >= 1 ? 1 : (value > 0 ? value : 0), progress.getProgress(), 0.001); // formula
   }
 }

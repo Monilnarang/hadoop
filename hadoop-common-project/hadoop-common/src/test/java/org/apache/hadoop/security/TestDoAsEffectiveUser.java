@@ -30,8 +30,12 @@ import org.apache.hadoop.security.authorize.DefaultImpersonationProvider;
 import org.apache.hadoop.security.authorize.ProxyUsers;
 import org.apache.hadoop.security.token.Token;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +45,8 @@ import java.net.NetworkInterface;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 /**
  * Test do as effective user.
@@ -69,7 +75,7 @@ public class TestDoAsEffectiveUser extends TestRpcBase {
         + "DEFAULT");
   }
 
-  @Before
+  @BeforeEach
   public void setMasterConf() throws IOException {
     UserGroupInformation.setConfiguration(masterConf);
     refreshConf(masterConf);
@@ -106,13 +112,22 @@ public class TestDoAsEffectiveUser extends TestRpcBase {
    * {@link org.apache.hadoop.security.UserGroupInformation#createProxyUser(java.lang.String, org.apache.hadoop.security.UserGroupInformation)}
    * .
    */
-  @Test
-  public void testCreateProxyUser() throws Exception {
+  private static Stream<Arguments> valuesSetsForTestCreateProxyUser() {
+      return Stream.of(
+          Arguments.of("realUser1@HADOOP.APACHE.ORG", "proxyUser"),
+          Arguments.of("realUser2@HADOOP.APACHE.ORG", "username"),
+          Arguments.of("userName123123@HADOOP.APACHE.ORG", "GarbageValue")
+      );
+    }
+  // PUTs #44
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestCreateProxyUser")
+  public void testCreateProxyUser(String realUserName, String proxyUserName) throws Exception {
     // ensure that doAs works correctly
     UserGroupInformation realUserUgi = UserGroupInformation
-        .createRemoteUser(REAL_USER_NAME);
+        .createRemoteUser(realUserName);
     UserGroupInformation proxyUserUgi = UserGroupInformation.createProxyUser(
-        PROXY_USER_NAME, realUserUgi);
+        proxyUserName, realUserUgi);
     UserGroupInformation curUGI = proxyUserUgi
         .doAs(new PrivilegedExceptionAction<UserGroupInformation>() {
           @Override
@@ -121,8 +136,8 @@ public class TestDoAsEffectiveUser extends TestRpcBase {
           }
         });
     Assert.assertEquals(
-        PROXY_USER_NAME + " (auth:PROXY) via " + REAL_USER_NAME + " (auth:SIMPLE)",
-        curUGI.toString());
+        proxyUserName + " (auth:PROXY) via " + realUserName + " (auth:SIMPLE)",
+        curUGI.toString()); // basic manipulation of parameter
   }
 
   private void checkRemoteUgi(final UserGroupInformation ugi,
@@ -143,7 +158,8 @@ public class TestDoAsEffectiveUser extends TestRpcBase {
     });    
   }
   
-  @Test(timeout=4000)
+  @Test
+  @Timeout(value = 4000, unit = TimeUnit.MILLISECONDS)
   public void testRealUserSetup() throws IOException {
     final Configuration conf = new Configuration();
     conf.setStrings(DefaultImpersonationProvider.getTestProvider().
@@ -173,7 +189,8 @@ public class TestDoAsEffectiveUser extends TestRpcBase {
     }
   }
 
-  @Test(timeout=4000)
+  @Test
+  @Timeout(value = 4000, unit = TimeUnit.MILLISECONDS)
   public void testRealUserAuthorizationSuccess() throws IOException {
     final Configuration conf = new Configuration();
     configureSuperUserIPAddresses(conf, REAL_USER_SHORT_NAME);
@@ -357,8 +374,17 @@ public class TestDoAsEffectiveUser extends TestRpcBase {
    *  The server sees only the the owner of the token as the
    *  user.
    */
-  @Test
-  public void testProxyWithToken() throws Exception {
+  private static Stream<Arguments> valuesSetsForTestProxyWithToken() {
+      return Stream.of(
+                Arguments.of("realUser1@HADOOP.APACHE.ORG", "proxyUser"),
+                Arguments.of("realUser2@HADOOP.APACHE.ORG", "username"),
+                Arguments.of("userName123123@HADOOP.APACHE.ORG", "GarbageValue")
+            );
+    }
+  // PUTs #45
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestProxyWithToken")
+  public void testProxyWithToken(String realUserName, String proxyUserName) throws Exception {
     final Configuration conf = new Configuration(masterConf);
     TestTokenSecretManager sm = new TestTokenSecretManager();
     SecurityUtil.setAuthenticationMethod(AuthenticationMethod.KERBEROS, conf);
@@ -368,7 +394,7 @@ public class TestDoAsEffectiveUser extends TestRpcBase {
     final Server server = setupTestServer(conf, 5, sm);
 
     final UserGroupInformation current = UserGroupInformation
-        .createRemoteUser(REAL_USER_NAME);    
+        .createRemoteUser(realUserName);
 
     TestTokenIdentifier tokenId = new TestTokenIdentifier(new Text(current
         .getUserName()), new Text("SomeSuperUser"));
@@ -376,7 +402,7 @@ public class TestDoAsEffectiveUser extends TestRpcBase {
         sm);
     SecurityUtil.setTokenService(token, addr);
     UserGroupInformation proxyUserUgi = UserGroupInformation
-        .createProxyUserForTesting(PROXY_USER_NAME, current, GROUP_NAMES);
+        .createProxyUserForTesting(proxyUserName, current, GROUP_NAMES);
     proxyUserUgi.addToken(token);
     
     refreshConf(conf);
@@ -397,15 +423,24 @@ public class TestDoAsEffectiveUser extends TestRpcBase {
       }
     });
     //The user returned by server must be the one in the token.
-    Assert.assertEquals(REAL_USER_NAME + " (auth:TOKEN) via SomeSuperUser (auth:SIMPLE)", retVal);
+    Assert.assertEquals(realUserName + " (auth:TOKEN) via SomeSuperUser (auth:SIMPLE)", retVal); // basic manipulation of parameter
   }
 
   /*
    * The user gets the token via a superuser. Server should authenticate
    * this user. 
    */
-  @Test
-  public void testTokenBySuperUser() throws Exception {
+  private static Stream<Arguments> valuesSetsForTestTokenBySuperUser() {
+      return Stream.of(
+          Arguments.of("realUser1@HADOOP.APACHE.ORG"),
+          Arguments.of("realUser2@HADOOP.APACHE.ORG"),
+          Arguments.of("userName123123@HADOOP.APACHE.ORG")
+      );
+    }
+  // PUTs #46
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestTokenBySuperUser")
+  public void testTokenBySuperUser(String realUserName) throws Exception {
     TestTokenSecretManager sm = new TestTokenSecretManager();
     final Configuration newConf = new Configuration(masterConf);
     SecurityUtil.setAuthenticationMethod(AuthenticationMethod.KERBEROS, newConf);
@@ -416,7 +451,7 @@ public class TestDoAsEffectiveUser extends TestRpcBase {
     final Server server = setupTestServer(newConf, 5, sm);
 
     final UserGroupInformation current = UserGroupInformation
-        .createUserForTesting(REAL_USER_NAME, GROUP_NAMES);
+        .createUserForTesting(realUserName, GROUP_NAMES);
     
     refreshConf(newConf);
 
@@ -440,8 +475,8 @@ public class TestDoAsEffectiveUser extends TestRpcBase {
         }
       }
     });
-    String expected = REAL_USER_NAME + " (auth:TOKEN) via SomeSuperUser (auth:SIMPLE)";
-    Assert.assertEquals(retVal + "!=" + expected, expected, retVal);
+    String expected = realUserName + " (auth:TOKEN) via SomeSuperUser (auth:SIMPLE)";
+    Assert.assertEquals(retVal + "!=" + expected, expected, retVal); // no change in assertion
   }
   
   //
