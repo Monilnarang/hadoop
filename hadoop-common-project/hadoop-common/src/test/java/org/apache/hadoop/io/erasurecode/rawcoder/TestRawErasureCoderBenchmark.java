@@ -18,6 +18,7 @@
 package org.apache.hadoop.io.erasurecode.rawcoder;
 
 import org.apache.hadoop.io.erasurecode.ErasureCodeNative;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -33,6 +34,14 @@ public class TestRawErasureCoderBenchmark {
         RawErasureCoderBenchmark.CODER.DUMMY_CODER, 2, 100, 1024);
     RawErasureCoderBenchmark.performBench("decode",
         RawErasureCoderBenchmark.CODER.DUMMY_CODER, 5, 150, 100);
+
+    try {
+      RawErasureCoderBenchmark.performBench("decode",
+          RawErasureCoderBenchmark.CODER.DUMMY_CODER, 5, -150, 100);
+      Assert.assertTrue("should have thrown an IllegalArgumentException", false);
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(true);
+    }
   }
 
   @Test
@@ -42,6 +51,13 @@ public class TestRawErasureCoderBenchmark {
         RawErasureCoderBenchmark.CODER.LEGACY_RS_CODER, 2, 80, 200);
     RawErasureCoderBenchmark.performBench("decode",
         RawErasureCoderBenchmark.CODER.LEGACY_RS_CODER, 5, 300, 350);
+    try {
+      RawErasureCoderBenchmark.performBench("decode",
+          RawErasureCoderBenchmark.CODER.LEGACY_RS_CODER, 5, -300, 350);
+      Assert.assertTrue("should have thrown an IllegalArgumentException", false);
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(true);
+    }
   }
 
   @Test
@@ -51,6 +67,14 @@ public class TestRawErasureCoderBenchmark {
         RawErasureCoderBenchmark.CODER.RS_CODER, 3, 200, 200);
     RawErasureCoderBenchmark.performBench("decode",
         RawErasureCoderBenchmark.CODER.RS_CODER, 4, 135, 20);
+
+    try {
+      RawErasureCoderBenchmark.performBench("decode",
+          RawErasureCoderBenchmark.CODER.RS_CODER, 4, -135, 20);
+      Assert.assertTrue("should have thrown an IllegalArgumentException", false);
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(true);
+    }
   }
 
   @Test
@@ -61,5 +85,13 @@ public class TestRawErasureCoderBenchmark {
         RawErasureCoderBenchmark.CODER.ISAL_CODER, 5, 300, 64);
     RawErasureCoderBenchmark.performBench("decode",
         RawErasureCoderBenchmark.CODER.ISAL_CODER, 6, 200, 128);
+
+    try {
+      RawErasureCoderBenchmark.performBench("decode",
+          RawErasureCoderBenchmark.CODER.ISAL_CODER, 6, -200, 128);
+      Assert.assertTrue("should have thrown an IllegalArgumentException", false);
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(true);
+    }
   }
 }
