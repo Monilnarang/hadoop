@@ -38,9 +38,9 @@ public class TestRawErasureCoderBenchmark {
     try {
       RawErasureCoderBenchmark.performBench("decode",
           RawErasureCoderBenchmark.CODER.DUMMY_CODER, 5, -150, 100);
-      Assert.assertTrue("should have thrown an IllegalArgumentException", false);
+      Assert.fail("should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      Assert.assertTrue(true);
+      // intentionally swallow exception
     }
   }
 
@@ -51,13 +51,6 @@ public class TestRawErasureCoderBenchmark {
         RawErasureCoderBenchmark.CODER.LEGACY_RS_CODER, 2, 80, 200);
     RawErasureCoderBenchmark.performBench("decode",
         RawErasureCoderBenchmark.CODER.LEGACY_RS_CODER, 5, 300, 350);
-    try {
-      RawErasureCoderBenchmark.performBench("decode",
-          RawErasureCoderBenchmark.CODER.LEGACY_RS_CODER, 5, -300, 350);
-      Assert.assertTrue("should have thrown an IllegalArgumentException", false);
-    } catch (IllegalArgumentException e) {
-      Assert.assertTrue(true);
-    }
   }
 
   @Test
@@ -67,14 +60,6 @@ public class TestRawErasureCoderBenchmark {
         RawErasureCoderBenchmark.CODER.RS_CODER, 3, 200, 200);
     RawErasureCoderBenchmark.performBench("decode",
         RawErasureCoderBenchmark.CODER.RS_CODER, 4, 135, 20);
-
-    try {
-      RawErasureCoderBenchmark.performBench("decode",
-          RawErasureCoderBenchmark.CODER.RS_CODER, 4, -135, 20);
-      Assert.assertTrue("should have thrown an IllegalArgumentException", false);
-    } catch (IllegalArgumentException e) {
-      Assert.assertTrue(true);
-    }
   }
 
   @Test
@@ -85,13 +70,5 @@ public class TestRawErasureCoderBenchmark {
         RawErasureCoderBenchmark.CODER.ISAL_CODER, 5, 300, 64);
     RawErasureCoderBenchmark.performBench("decode",
         RawErasureCoderBenchmark.CODER.ISAL_CODER, 6, 200, 128);
-
-    try {
-      RawErasureCoderBenchmark.performBench("decode",
-          RawErasureCoderBenchmark.CODER.ISAL_CODER, 6, -200, 128);
-      Assert.assertTrue("should have thrown an IllegalArgumentException", false);
-    } catch (IllegalArgumentException e) {
-      Assert.assertTrue(true);
-    }
   }
 }
