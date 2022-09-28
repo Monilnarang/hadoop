@@ -20,12 +20,17 @@ package org.apache.hadoop.util;
 
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * Simple tests for utility class Lists.
@@ -48,99 +53,116 @@ public class TestLists {
     Assert.assertEquals("record1", list.get(0));
   }
 
-  @Test
-  public void testVarArgArrayLists() {
-    List<String> list = Lists.newArrayList("record1", "record2", "record3");
+  private static Stream<Arguments> valuesSetsForTestVarArgArrayLists() {
+      return Stream.of(
+          Arguments.of((Object) new String[]{"record1", "record2", "record3"}),
+          Arguments.of((Object) new String[]{"record4", "record5", "record6", "record7", "record8"}),
+          Arguments.of((Object) new String[]{"R!", "R@", "R#", "R$", "R %"})
+      );
+  }
+   // PUTs #65
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestVarArgArrayLists")
+  public void testVarArgArrayLists(String[] recordList) {
+    List<String> list = Lists.newArrayList(recordList);
     list.add("record4");
-    Assert.assertEquals(4, list.size());
-    Assert.assertEquals("record1", list.get(0));
-    Assert.assertEquals("record2", list.get(1));
-    Assert.assertEquals("record3", list.get(2));
-    Assert.assertEquals("record4", list.get(3));
+    Assert.assertEquals(recordList.length + 1, list.size()); // basic manipulation of parameter
+    for (int i = 0;i < recordList.length; i++) {
+        Assert.assertEquals(recordList[i], list.get(i)); // basic manipulation of parameter
+    }
+    Assert.assertEquals("record4", list.get(recordList.length)); // no change in assertion
   }
 
-  @Test
-  public void testItrArrayLists() {
-    Set<String> set = new HashSet<>();
-    set.add("record1");
-    set.add("record2");
-    set.add("record3");
+  private static Stream<Arguments> valuesSetsForTestItrArrayLists() {
+      return Stream.of(
+          Arguments.of(new HashSet<>(Arrays.asList("record1", "record2", "record3"))),
+          Arguments.of(new HashSet<>(Arrays.asList("record1"))),
+          Arguments.of(new HashSet<>(Arrays.asList("record1123", "record54", "record13")))
+      );
+  }
+  // PUTs #68
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestItrArrayLists")
+  public void testItrArrayLists(Set<String> stringHash) {
+    Set<String> set = new HashSet<>(stringHash);
     List<String> list = Lists.newArrayList(set);
     list.add("record4");
-    Assert.assertEquals(4, list.size());
+    Assert.assertEquals(stringHash.size()+1, list.size()); // basic manipulation of parameter
   }
 
-  @Test
-  public void testItrLinkedLists() {
-    Set<String> set = new HashSet<>();
-    set.add("record1");
-    set.add("record2");
-    set.add("record3");
+  private static Stream<Arguments> valuesSetsForTestItrLinkedLists() {
+      return Stream.of(
+          Arguments.of(new HashSet<>(Arrays.asList("record1", "record2", "record3"))),
+          Arguments.of(new HashSet<>(Arrays.asList("record1"))),
+          Arguments.of(new HashSet<>(Arrays.asList("record1123", "record54", "record13")))
+      );
+  }
+  // PUTs #69
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestItrLinkedLists")
+  public void testItrLinkedLists(Set<String> stringHash) {
+    Set<String> set = new HashSet<>(stringHash);
     List<String> list = Lists.newLinkedList(set);
     list.add("record4");
-    Assert.assertEquals(4, list.size());
+    Assert.assertEquals(stringHash.size() + 1, list.size()); // basic manipulation of parameter
   }
 
-  @Test
-  public void testListsPartition() {
+  private static Stream<Arguments> valuesSetsForTestListsPartition() {
+      return Stream.of(
+          Arguments.of((Object) new String[]{"a", "b", "c", "d", "e"}, 2), //  5, 2 -> 1
+          Arguments.of((Object) new String[]{"a", "b", "c", "d", "e"}, 1), // 5,1 -> 1
+          Arguments.of((Object) new String[]{"a", "b", "c", "d", "e"}, 6), // 5, 6 -> 5
+          Arguments.of((Object) new String[]{"a", "b", "c", "d", "e"}, 13), // 5, 13 -> 5
+          Arguments.of((Object) new String[]{"a", "b", "c"}, 3) // 3, 3 -> 3
+      );
+  }
+   // PUTs #66
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestListsPartition")
+  public void testListsPartition(String[] stringList, int pageSize) {
     List<String> list = new ArrayList<>();
-    list.add("a");
-    list.add("b");
-    list.add("c");
-    list.add("d");
-    list.add("e");
+    for (int i = 0;i < stringList.length; i++) {
+        list.add(stringList[i]);
+    }
     List<List<String>> res = Lists.
-            partition(list, 2);
+            partition(list, pageSize);
     Assertions.assertThat(res)
             .describedAs("Number of partitions post partition")
-            .hasSize(3);
+            .hasSize((int) Math.ceil(stringList.length / (pageSize * 1.0))); // formula
     Assertions.assertThat(res.get(0))
             .describedAs("Number of elements in first partition")
-            .hasSize(2);
-    Assertions.assertThat(res.get(2))
+            .hasSize(Math.min(stringList.length, pageSize)); // formula
+    Assertions.assertThat(res.get((int) Math.ceil(stringList.length / (pageSize * 1.0)) - 1))
             .describedAs("Number of elements in last partition")
-            .hasSize(1);
-
-    List<List<String>> res2 = Lists.
-            partition(list, 1);
-    Assertions.assertThat(res2)
-            .describedAs("Number of partitions post partition")
-            .hasSize(5);
-    Assertions.assertThat(res2.get(0))
-            .describedAs("Number of elements in first partition")
-            .hasSize(1);
-    Assertions.assertThat(res2.get(4))
-            .describedAs("Number of elements in last partition")
-            .hasSize(1);
-
-    List<List<String>> res3 = Lists.
-            partition(list, 6);
-    Assertions.assertThat(res3)
-            .describedAs("Number of partitions post partition")
-            .hasSize(1);
-    Assertions.assertThat(res3.get(0))
-            .describedAs("Number of elements in first partition")
-            .hasSize(5);
+            .hasSize(stringList.length%pageSize == 0 ? Math.min(stringList.length, pageSize) : stringList.length % pageSize); // formula
   }
 
-  @Test
-  public void testArrayListWithSize() {
-    List<String> list = Lists.newArrayListWithCapacity(3);
-    list.add("record1");
-    list.add("record2");
-    list.add("record3");
-    Assert.assertEquals(3, list.size());
-    Assert.assertEquals("record1", list.get(0));
-    Assert.assertEquals("record2", list.get(1));
-    Assert.assertEquals("record3", list.get(2));
-    list = Lists.newArrayListWithCapacity(3);
-    list.add("record1");
-    list.add("record2");
-    list.add("record3");
-    Assert.assertEquals(3, list.size());
-    Assert.assertEquals("record1", list.get(0));
-    Assert.assertEquals("record2", list.get(1));
-    Assert.assertEquals("record3", list.get(2));
+  private static Stream<Arguments> valuesSetsForTestArrayListWithSize() {
+      return Stream.of(
+          Arguments.of((Object) new String[]{"record1", "record2", "record3"}, (Object) new String[]{"record1", "record2", "record3"}),
+          Arguments.of((Object) new String[]{"record4", "record5", "record6", "record7", "record8"}, (Object) new String[]{"record1"}),
+          Arguments.of((Object) new String[]{"R!", "R@", "R#", "R$", "R %"}, (Object) new String[]{"record2", "record3"})
+      );
   }
-
+   // PUTs #67
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestArrayListWithSize")
+  public void testArrayListWithSize(String[] list1, String[] list2) {
+    List<String> list = Lists.newArrayListWithCapacity(list1.length);
+    for (int i = 0; i < list1.length; i++) {
+        list.add(list1[i]);
+    }
+    Assert.assertEquals(list1.length, list.size()); // basic manipulation of parameter
+    for (int i = 0; i < list1.length; i++) {
+        Assert.assertEquals(list1[i], list.get(i)); // basic manipulation of parameter
+    }
+    list = Lists.newArrayListWithCapacity(list2.length);
+    for (int i = 0; i < list2.length; i++) {
+            list.add(list2[i]);
+    }
+    Assert.assertEquals(list2.length, list.size()); // basic manipulation of parameter
+    for (int i = 0; i < list2.length; i++) {
+        Assert.assertEquals(list2[i], list.get(i)); // basic manipulation of parameter
+    }
+  }
 }

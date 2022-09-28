@@ -18,24 +18,48 @@
 
 package org.apache.hadoop.security;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+@RunWith(Parameterized.class)
 public class TestHttpCrossOriginFilterInitializer {
 
+  @Parameterized.Parameter(value = 0)
+  public String param;
+  @Parameterized.Parameter(value = 1)
+  public String nestedParam;
+  @Parameterized.Parameter(value = 2)
+  public String value1;
+  @Parameterized.Parameter(value = 3)
+  public String value2;
+
+  @Parameterized.Parameters
+    public static Collection<Object[]> testData() {
+      Object[][] data = new Object[][] { {"rootparam", "nested.param", "rootvalue", "nestedvalue"},
+                                         {"random123@", "nested.param.nested.again", "garbage Value", "some 123.value"}
+      };
+
+      return Arrays.asList(data);
+    }
+
+  // PUTs #49
   @Test
   public void testGetFilterParameters() {
 
     // Initialize configuration object
     Configuration conf = new Configuration();
-    conf.set(HttpCrossOriginFilterInitializer.PREFIX + "rootparam",
-        "rootvalue");
-    conf.set(HttpCrossOriginFilterInitializer.PREFIX + "nested.param",
-        "nestedvalue");
+    conf.set(HttpCrossOriginFilterInitializer.PREFIX + param,
+        value1);
+    conf.set(HttpCrossOriginFilterInitializer.PREFIX + nestedParam,
+        value2);
     conf.set("outofscopeparam", "outofscopevalue");
 
     // call function under test
@@ -43,16 +67,16 @@ public class TestHttpCrossOriginFilterInitializer {
         .getFilterParameters(conf, HttpCrossOriginFilterInitializer.PREFIX);
 
     // retrieve values
-    String rootvalue = filterParameters.get("rootparam");
-    String nestedvalue = filterParameters.get("nested.param");
+    String rootvalue = filterParameters.get(param);
+    String nestedvalue = filterParameters.get(nestedParam);
     String outofscopeparam = filterParameters.get("outofscopeparam");
 
     // verify expected values are in place
-    Assert.assertEquals("Could not find filter parameter", "rootvalue",
-        rootvalue);
-    Assert.assertEquals("Could not find filter parameter", "nestedvalue",
-        nestedvalue);
+    Assert.assertEquals("Could not find filter parameter", value1,
+        rootvalue); // used parameter directly
+    Assert.assertEquals("Could not find filter parameter", value2,
+        nestedvalue); // used parameter directly
     Assert.assertNull("Found unexpected value in filter parameters",
-        outofscopeparam);
+        outofscopeparam); // no change in assertion
   }
 }

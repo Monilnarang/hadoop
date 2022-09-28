@@ -44,6 +44,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
@@ -60,12 +62,11 @@ import org.apache.hadoop.hdfs.server.protocol.SlowPeerReports;
 import org.apache.hadoop.hdfs.server.protocol.StorageReport;
 import org.apache.hadoop.test.GenericTestUtils;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.Timeout;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
@@ -78,6 +79,7 @@ import java.util.function.Supplier;
 /**
  * Test suite covering lifeline protocol handling in the DataNode.
  */
+@RunWith(Parameterized.class)
 public class TestDataNodeLifeline {
 
   private static final Logger LOG = LoggerFactory.getLogger(
@@ -105,10 +107,25 @@ public class TestDataNodeLifeline {
     }
   };
 
+  @Parameterized.Parameter(value = 0)
+    public int numLifelines;
+  @Parameterized.Parameter(value = 1)
+    public int numHeartbeats;
+
+  @Parameterized.Parameters
+    public static Collection<Object> testData() {
+      Object[][] data = new Object[][] { {10, 10},
+                                         {11, 11},
+                                         {100, 100},
+                                         {Integer.MAX_VALUE, Integer.MIN_VALUE}
+      };
+      return Arrays.asList(data);
+    }
   @Before
   public void setup() throws Exception {
     // Configure cluster with lifeline RPC server enabled, and down-tune
     // heartbeat timings to try to force quick dead/stale DataNodes.
+    Assume.assumeTrue(Math.abs(numLifelines) <= 10 && Math.abs(numHeartbeats) <= 10); // it takes too long otherwise
     conf = new HdfsConfiguration();
     conf.setInt(DFS_DATANODE_LIFELINE_INTERVAL_SECONDS_KEY, 2);
     conf.setInt(DFS_HEARTBEAT_INTERVAL_KEY, 1);
@@ -160,10 +177,11 @@ public class TestDataNodeLifeline {
     }
   }
 
+  // PUTs #32
   @Test
   public void testSendLifelineIfHeartbeatBlocked() throws Exception {
-    // Run the test for the duration of sending 10 lifeline RPC messages.
-    int numLifelines = 10;
+    // Run the test for the duration of sending numLifelines lifeline RPC messages.
+
     CountDownLatch lifelinesSent = new CountDownLatch(numLifelines);
 
     // Intercept heartbeat to inject an artificial delay, until all expected
@@ -199,11 +217,11 @@ public class TestDataNodeLifeline {
     // that the DataNode always stays alive, and never goes stale or dead.
     while (!lifelinesSent.await(1, SECONDS)) {
       assertEquals("Expect DataNode to be kept alive by lifeline.", 1,
-          namesystem.getNumLiveDataNodes());
+          namesystem.getNumLiveDataNodes()); // no change in assertion
       assertEquals("Expect DataNode not marked dead due to lifeline.", 0,
-          namesystem.getNumDeadDataNodes());
+          namesystem.getNumDeadDataNodes()); // no change in assertion
       assertEquals("Expect DataNode not marked stale due to lifeline.", 0,
-          namesystem.getNumStaleDataNodes());
+          namesystem.getNumStaleDataNodes()); // no change in assertion
       // add a new volume on the next heartbeat
       cluster.getDataNodes().get(0).reconfigurePropertyImpl(
           DFS_DATANODE_DATA_DIR_KEY,
@@ -227,13 +245,13 @@ public class TestDataNodeLifeline {
     // slack in the assertion.
     assertTrue("Expect metrics to count at least " + numLifelines + " calls.",
         getLongCounter("LifelinesNumOps", getMetrics(metrics.name())) >=
-            numLifelines);
+            numLifelines); // used local variable
   }
 
+  // PUTs #33
   @Test
   public void testNoLifelineSentIfHeartbeatsOnTime() throws Exception {
-    // Run the test for the duration of sending 10 heartbeat RPC messages.
-    int numHeartbeats = 10;
+    // Run the test for the duration of sending numHeartbeats heartbeat RPC messages.
     CountDownLatch heartbeatsSent = new CountDownLatch(numHeartbeats);
 
     // Intercept heartbeat to trigger latch count-down on each call.
@@ -256,11 +274,11 @@ public class TestDataNodeLifeline {
     // stays alive, and never goes stale or dead.
     while (!heartbeatsSent.await(1, SECONDS)) {
       assertEquals("Expect DataNode to be kept alive by lifeline.", 1,
-          namesystem.getNumLiveDataNodes());
+          namesystem.getNumLiveDataNodes()); // no change in assertion
       assertEquals("Expect DataNode not marked dead due to lifeline.", 0,
-          namesystem.getNumDeadDataNodes());
+          namesystem.getNumDeadDataNodes()); // no change in assertion
       assertEquals("Expect DataNode not marked stale due to lifeline.", 0,
-          namesystem.getNumStaleDataNodes());
+          namesystem.getNumStaleDataNodes()); // no change in assertion
     }
 
     // Verify that we did not call the lifeline RPC.
@@ -276,7 +294,7 @@ public class TestDataNodeLifeline {
 
     // Also verify no lifeline calls through metrics.
     assertEquals("Expect metrics to count no lifeline calls.", 0,
-        getLongCounter("LifelinesNumOps", getMetrics(metrics.name())));
+        getLongCounter("LifelinesNumOps", getMetrics(metrics.name()))); // no change in assertion
   }
 
   @Test

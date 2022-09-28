@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 import javax.security.auth.login.AppConfigurationEntry;
 import org.apache.curator.test.TestingServer;
@@ -36,9 +37,13 @@ import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.client.ZKClientConfig;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.Assume;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Test the manager for ZooKeeper Curator.
@@ -48,7 +53,7 @@ public class TestZKCuratorManager {
   private TestingServer server;
   private ZKCuratorManager curator;
 
-  @Before
+  @BeforeEach
   public void setup() throws Exception {
     this.server = new TestingServer();
 
@@ -60,7 +65,7 @@ public class TestZKCuratorManager {
     this.curator.start();
   }
 
-  @After
+  @AfterEach
   public void teardown() throws Exception {
     this.curator.close();
     if (this.server != null) {
@@ -81,26 +86,42 @@ public class TestZKCuratorManager {
     assertEquals(expectedString, testString);
   }
 
-  @Test
-  public void testChildren() throws Exception {
-    List<String> children = curator.getChildren("/");
-    assertEquals(1, children.size());
-
-    assertFalse(curator.exists("/node1"));
-    curator.create("/node1");
-    assertTrue(curator.exists("/node1"));
-
-    assertFalse(curator.exists("/node2"));
-    curator.create("/node2");
-    assertTrue(curator.exists("/node2"));
+  // quick but good flip with loops add and delete counts
+  private static Stream<Arguments> valuesSetsForTestChildren() {
+      return Stream.of(
+//          Arguments.of(3, 1),
+//          Arguments.of(4, 2),
+//          Arguments.of(7, 8),
+//          Arguments.of(7, 5),
+          Arguments.of(0, 0)
+      );
+    }
+  // PUTs #63
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestChildren")
+  public void testChildren(int addChildren, int deleteChildren) throws Exception {
+    Assume.assumeTrue(deleteChildren <= addChildren);
+    List<String> children;
 
     children = curator.getChildren("/");
-    assertEquals(3, children.size());
+    assertEquals(1, children.size()); // no change in assertion
 
-    curator.delete("/node2");
-    assertFalse(curator.exists("/node2"));
+    for (int i = 1; i < addChildren; i++) {
+        assertFalse(curator.exists("/node" + String.valueOf(i))); // other manipulation
+        curator.create("/node" + String.valueOf(i));
+        assertTrue(curator.exists("/node" + String.valueOf(i))); // other manipulation
+    }
+
     children = curator.getChildren("/");
-    assertEquals(2, children.size());
+    assertEquals(addChildren + 1, children.size()); // used parameter directly
+
+    for (int i = 1; i <= deleteChildren; i++) {
+        curator.delete("/node" + String.valueOf(i));
+        assertFalse(curator.exists("/node" + String.valueOf(i))); // other manipulation
+        children = curator.getChildren("/");
+        assertEquals(addChildren - i, children.size()); // used parameter directly
+    }
+    assertEquals(addChildren-deleteChildren, children.size()); // basic manipulation of parameter
   }
 
   @Test

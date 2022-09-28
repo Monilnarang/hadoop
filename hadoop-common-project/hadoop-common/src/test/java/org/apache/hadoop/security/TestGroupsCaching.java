@@ -31,10 +31,12 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.hadoop.util.FakeTimer;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.hadoop.util.Sets;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -43,6 +45,9 @@ import static org.junit.Assert.fail;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +59,7 @@ public class TestGroupsCaching {
   private static String[] myGroups = {"grp1", "grp2"};
   private Configuration conf;
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException {
     FakeGroupMapping.clearAll();
     ExceptionalGroupMapping.resetRequestCount();
@@ -293,15 +298,24 @@ public class TestGroupsCaching {
 
   }
 
-  @Test
-  public void testNegativeGroupCaching() throws Exception {
+  private static Stream<Arguments> valuesSetsForTestNegativeGroupCaching() {
+      return Stream.of(
+          Arguments.of((Object) new String[]{"grp1", "grp2"}),
+          Arguments.of((Object) new String[]{"grp1", "grp2", "grp3", "grp4"}),
+          Arguments.of((Object) new String[]{"group19", "Group22"})
+      );
+    }
+  // PUTs #47
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestNegativeGroupCaching")
+  public void testNegativeGroupCaching(String[] groupList) throws Exception {
     final String user = "negcache";
     final String failMessage = "Did not throw IOException: ";
     conf.setLong(
         CommonConfigurationKeys.HADOOP_SECURITY_GROUPS_NEGATIVE_CACHE_SECS, 2);
     FakeTimer timer = new FakeTimer();
     Groups groups = new Groups(conf, timer);
-    groups.cacheGroupsAdd(Arrays.asList(myGroups));
+    groups.cacheGroupsAdd(Arrays.asList(groupList));
     groups.refresh();
     FakeGroupMapping.addToBlackList(user);
 
@@ -340,7 +354,7 @@ public class TestGroupsCaching {
 
     // The groups for the user is expired in the negative cache, a new copy of
     // groups for the user is fetched.
-    assertEquals(Arrays.asList(myGroups), groups.getGroups(user));
+    assertEquals(Arrays.asList(groupList), groups.getGroups(user)); // used parameter directly
   }
 
   @Test
@@ -364,8 +378,18 @@ public class TestGroupsCaching {
     assertEquals(1, FakeGroupMapping.getRequestCount());
   }
 
-  @Test
-  public void testExceptionsFromImplNotCachedInNegativeCache() {
+  private static Stream<Arguments> valuesSetsForTestExceptionsFromImplNotCachedInNegativeCache() {
+      return Stream.of(
+          Arguments.of(0),
+          Arguments.of(1),
+          Arguments.of(2),
+          Arguments.of(10)
+      );
+    }
+  // PUTs #48
+  @ParameterizedTest
+  @MethodSource("valuesSetsForTestExceptionsFromImplNotCachedInNegativeCache")
+  public void testExceptionsFromImplNotCachedInNegativeCache(int expectedExceptions) {
     conf.setClass(CommonConfigurationKeys.HADOOP_SECURITY_GROUP_MAPPING,
       ExceptionalGroupMapping.class,
       ShellBasedUnixGroupsMapping.class);
@@ -374,25 +398,19 @@ public class TestGroupsCaching {
     groups.cacheGroupsAdd(Arrays.asList(myGroups));
     groups.refresh();
 
-    assertEquals(0, ExceptionalGroupMapping.getRequestCount());
+    assertEquals(0, ExceptionalGroupMapping.getRequestCount()); // no change in assertion
 
     // First call should hit the wire
-    try {
-      groups.getGroups("anything");
-      fail("Should have thrown");
-    } catch (IOException e) {
-      // okay
-    }
-    assertEquals(1, ExceptionalGroupMapping.getRequestCount());
-
     // Second call should hit the wire (no negative caching)
-    try {
-      groups.getGroups("anything");
-      fail("Should have thrown");
-    } catch (IOException e) {
-      // okay
+    for (int i = 0; i < expectedExceptions; i++) {
+        try {
+              groups.getGroups("anything");
+              fail("Should have thrown");
+            } catch (IOException e) {
+              // okay
+            }
+            assertEquals(i + 1, ExceptionalGroupMapping.getRequestCount()); // other manipulation
     }
-    assertEquals(2, ExceptionalGroupMapping.getRequestCount());
   }
 
   @Test
