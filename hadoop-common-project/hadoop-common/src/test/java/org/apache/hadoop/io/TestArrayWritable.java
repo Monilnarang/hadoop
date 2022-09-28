@@ -23,26 +23,46 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
 
 import org.junit.Test;
+import org.junit.experimental.runners.Enclosed;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 
 /** Unit tests for ArrayWritable */
+@RunWith(Enclosed.class)
 public class TestArrayWritable {
   static class TextArrayWritable extends ArrayWritable {
     public TextArrayWritable() {
       super(Text.class);
     }
   }
-	
+
+@RunWith(Parameterized.class)
+public static class TheParameterizedPart {
+    @Parameterized.Parameter(value = 0)
+    public Text[] elements;
+
+    @Parameterized.Parameters
+    public static Collection<Object[]> textData() {
+        Text[][][] data = new Text[][][] { {{new Text("zero"), new Text("one"), new Text("two")} },
+                { {new Text("zero"), new Text("one")} },
+                { {new Text("")} },
+                { {new Text("$@#*(@&")} }
+        };
+        return Arrays.asList(data);
+    }
+
   /**
    * If valueClass is undefined, readFields should throw an exception indicating
-   * that the field is null. Otherwise, readFields should succeed.	
+   * that the field is null. Otherwise, readFields should succeed.
    */
+  // PUTs #1
   @Test
   public void testThrowUndefinedValueException() throws IOException {
-    // Get a buffer containing a simple text array
-    Text[] elements = {new Text("zero"), new Text("one"), new Text("two")};
     TextArrayWritable sourceArray = new TextArrayWritable();
     sourceArray.set(elements);
 
@@ -62,25 +82,27 @@ public class TestArrayWritable {
       assertEquals(destElements[i],elements[i]);
     }
   }
-  
+
  /**
-  * test {@link ArrayWritable} toArray() method 
+  * test {@link ArrayWritable} toArray() method
   */
+ // PUTs #2
  @Test
   public void testArrayWritableToArray() {
-    Text[] elements = {new Text("zero"), new Text("one"), new Text("two")};
     TextArrayWritable arrayWritable = new TextArrayWritable();
     arrayWritable.set(elements);
     Object array = arrayWritable.toArray();
-  
+
     assertTrue("TestArrayWritable testArrayWritableToArray error!!! ", array instanceof Text[]);
     Text[] destElements = (Text[]) array;
-  
+
     for (int i = 0; i < elements.length; i++) {
       assertEquals(destElements[i], elements[i]);
     }
   }
-  
+  }
+
+  public static class NotParameterizedPart {
   /**
    * test {@link ArrayWritable} constructor with null
    */
@@ -96,10 +118,10 @@ public class TestArrayWritable {
   public void testArrayWritableStringConstructor() {
     String[] original = { "test1", "test2", "test3" };
     ArrayWritable arrayWritable = new ArrayWritable(original);
-    assertEquals("testArrayWritableStringConstructor class error!!!", 
+    assertEquals("testArrayWritableStringConstructor class error!!!",
         Text.class, arrayWritable.getValueClass());
     assertArrayEquals("testArrayWritableStringConstructor toString error!!!",
       original, arrayWritable.toStrings());
   }
-  
+  }
 }
