@@ -106,8 +106,8 @@ public class TestDefaultStringifier {
 
     Integer[] array = new Integer[] {1,2,3,4,5}, emptyArray = new Integer[] {};
 
-
-    DefaultStringifier.storeArray(conf, emptyArray, keyName); // storeArray failed for empty array
+    // storeArray failed for empty array
+    DefaultStringifier.storeArray(conf, emptyArray, keyName);
     assertEquals(0
         , DefaultStringifier.<Integer>loadArray(conf, keyName, Integer.class).length);
     DefaultStringifier.storeArray(conf, array, keyName);
