@@ -158,9 +158,9 @@ public class DefaultStringifier<T> implements Stringifier<T> {
   public static <K> void storeArray(Configuration conf, K[] items,
       String keyName) throws IOException {
 
-    if (items == null || items.length == 0) {
+    if (items.length == 0) {
       conf.set(keyName, "");
-      return;
+      throw new IndexOutOfBoundsException();
     }
     DefaultStringifier<K> stringifier = new DefaultStringifier<K>(conf, 
         GenericsUtil.getClass(items[0]));

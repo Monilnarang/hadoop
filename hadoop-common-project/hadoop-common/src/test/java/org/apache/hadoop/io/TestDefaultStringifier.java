@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.Random;
 
 import org.apache.hadoop.conf.Configuration;
+import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,8 +107,12 @@ public class TestDefaultStringifier {
 
     Integer[] array = new Integer[] {1,2,3,4,5}, emptyArray = new Integer[] {};
 
-    // storeArray failed for empty array
-    DefaultStringifier.storeArray(conf, emptyArray, keyName);
+    try {
+      DefaultStringifier.storeArray(conf, emptyArray, keyName);
+      Assert.fail("Should have thrown an IndexOutOfBoundsException");
+    } catch (IndexOutOfBoundsException e) {
+      // pass
+    }
     assertEquals(0
         , DefaultStringifier.<Integer>loadArray(conf, keyName, Integer.class).length);
     DefaultStringifier.storeArray(conf, array, keyName);
