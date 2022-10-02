@@ -105,19 +105,10 @@ public class TestDefaultStringifier {
 
     String keyName = "test.defaultstringifier.key2";
 
-    Integer[] array = new Integer[] {1,2,3,4,5}, emptyArray = new Integer[] {};
+    Integer[] array = new Integer[] {1,2,3,4,5};
 
     try {
-      DefaultStringifier.storeArray(conf, null, keyName);
-      Assert.fail("Should have thrown a NullPointerException");
-    } catch (NullPointerException e) {
-      // pass
-    }
-    assertEquals(0
-        , DefaultStringifier.<Integer>loadArray(conf, keyName, Integer.class).length);
-
-    try {
-      DefaultStringifier.storeArray(conf, emptyArray, keyName);
+      DefaultStringifier.storeArray(conf, new Integer[] {}, keyName);
       Assert.fail("Should have thrown an IndexOutOfBoundsException");
     } catch (IndexOutOfBoundsException e) {
       // pass
