@@ -114,8 +114,6 @@ public class TestDefaultStringifier {
     } catch (IndexOutOfBoundsException e) {
       // pass
     }
-    assertEquals(0
-        , DefaultStringifier.<Integer>loadArray(conf, keyName, Integer.class).length);
     DefaultStringifier.storeArray(conf, array, keyName);
 
     Integer[] claimedArray = DefaultStringifier.<Integer>loadArray(conf, keyName, Integer.class);

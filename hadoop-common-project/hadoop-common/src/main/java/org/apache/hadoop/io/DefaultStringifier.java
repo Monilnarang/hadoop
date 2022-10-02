@@ -159,7 +159,6 @@ public class DefaultStringifier<T> implements Stringifier<T> {
       String keyName) throws IOException {
 
     if (items.length == 0) {
-      conf.set(keyName, "");
       throw new IndexOutOfBoundsException();
     }
     DefaultStringifier<K> stringifier = new DefaultStringifier<K>(conf, 
