@@ -107,6 +107,7 @@ public class TestDefaultStringifier {
 
     Integer[] array = new Integer[] {1,2,3,4,5};
 
+    
     try {
       DefaultStringifier.storeArray(conf, new Integer[] {}, keyName);
       Assert.fail("Should have thrown an IndexOutOfBoundsException");
