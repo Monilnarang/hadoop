@@ -151,7 +151,6 @@ public class DefaultStringifier<T> implements Stringifier<T> {
    * @param conf the configuration to use 
    * @param items the objects to be stored
    * @param keyName the name of the key to use
-   * @throws NullPointerException if the items array is null
    * @throws IndexOutOfBoundsException if the items array is empty
    * @throws IOException : forwards Exceptions from the underlying 
    * {@link Serialization} classes.         
