@@ -22,12 +22,13 @@ import java.io.IOException;
 import java.util.Random;
 
 import org.apache.hadoop.conf.Configuration;
-import org.junit.Assert;
+
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 public class TestDefaultStringifier {
 
@@ -110,7 +111,7 @@ public class TestDefaultStringifier {
     
     try {
       DefaultStringifier.storeArray(conf, new Integer[] {}, keyName);
-      Assert.fail("Should have thrown an IndexOutOfBoundsException");
+      fail("Should have thrown an IndexOutOfBoundsException");
     } catch (IndexOutOfBoundsException e) {
       // pass
     }
